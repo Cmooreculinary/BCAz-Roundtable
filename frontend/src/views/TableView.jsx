@@ -4,11 +4,12 @@ import { api, formatApiErrorDetail } from "../lib/api";
 import RoundTableViz from "../components/rt/RoundTableViz";
 import EmptyState from "../components/rt/EmptyState";
 import HelpTip from "../components/rt/HelpTip";
-import { Share2, UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare } from "lucide-react";
+import { Share2, UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare, HeartHandshake, Armchair } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useRTEvent } from "../lib/realtime";
 import SmartSuggestions from "../components/SmartSuggestions";
+import PrayerWall from "../components/PrayerWall";
 
 export default function TableView({ onShare, onInvite, onVideoCall }) {
   const { id } = useParams();
@@ -17,6 +18,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
   const [msgText, setMsgText] = useState("");
   const [messages, setMessages] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState("table");
 
   const load = useCallback(async () => {
     try {
@@ -77,6 +79,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
 
   const live = table.active;
   const today = new Date().toISOString().slice(0, 10);
+  const prayerCount = (table.items || []).filter((it) => it.type === "prayer" || it.type === "intention").length;
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto" }}>
@@ -101,6 +104,20 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
         </div>
       </div>
 
+      {/* Table tabs */}
+      <div className="tabs" style={{ marginBottom: 14, paddingLeft: 0 }}>
+        <div className={`tab ${tab === "table" ? "active" : ""}`} onClick={() => setTab("table")} data-testid="tab-table">
+          <Armchair size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> The Table
+        </div>
+        <div className={`tab ${tab === "prayers" ? "active" : ""}`} onClick={() => setTab("prayers")} data-testid="tab-prayers">
+          <HeartHandshake size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Prayer Wall
+          {prayerCount > 0 && <span className="tab-badge" style={{ background: "var(--mac-purple)" }}>{prayerCount}</span>}
+        </div>
+      </div>
+
+      {tab === "prayers" ? (
+        <PrayerWall tableId={id} onShare={() => onShare?.(table)} />
+      ) : (
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 14 }} className="table-grid-2col">
         {/* Left: Round Table viz */}
         <div className="card" style={{ padding: 0, overflow: "hidden", minHeight: 560, position: "relative" }}>
@@ -153,7 +170,12 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
               <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-light)" }}>
                 <span style={{ width: 4, height: 30, background: e.color || table.color, borderRadius: 2 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{e.title}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                    {e.title}
+                    {e.recurring && e.recurring !== "none" && (
+                      <span className="badge" style={{ fontSize: 9, padding: "1px 6px" }}>↻ {e.recurring}</span>
+                    )}
+                  </div>
                   <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{e.date} · {e.time}</div>
                 </div>
               </div>
@@ -189,6 +211,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

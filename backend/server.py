@@ -344,6 +344,11 @@ class EventIn(BaseModel):
     color: Optional[str] = None
     description: Optional[str] = None
     location: Optional[str] = None
+    recurring: Optional[Literal["weekly", "monthly", "none"]] = "none"
+
+
+class ReactionIn(BaseModel):
+    type: Literal["praying", "amen", "heart", "thanks"]
 
 
 class InviteIn(BaseModel):
@@ -573,12 +578,18 @@ async def create_table(payload: TableIn, user: dict = Depends(get_current_user))
     await db.table_members.insert_one({
         "table_id": tid, "user_id": user["id"], "role": "owner", "joined_at": now_iso()
     })
+    # Purpose-based starter template (non-blocking, best-effort)
+    try:
+        await _seed_template(tid, t["purpose"], user["id"], t["color"])  # noqa: F821 — defined below at module level
+    except Exception as _tmpl_err:
+        logger.warning(f"template seed failed: {_tmpl_err}")
     t.pop("_id", None)
     t["members"] = [user_public(user)]
     t["member_count"] = 1
     t["active_count"] = 1 if user.get("status") == "online" else 0
-    t["items"] = []
-    t["events"] = []
+    # Reload items/events to include seeded content
+    t["items"] = await db.shared_items.find({"table_id": tid}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    t["events"] = await db.events.find({"table_id": tid}, {"_id": 0}).sort("date", 1).to_list(50)
     return t
 
 
@@ -627,6 +638,7 @@ async def add_item(table_id: str, payload: SharedItemIn, user: dict = Depends(ge
         "shared_by": user["id"],
         "shared_by_name": user["name"],
         "created_at": now_iso(),
+        "reactions": {"praying": [], "amen": [], "heart": [], "thanks": []},
         **payload.model_dump(),
     }
     await db.shared_items.insert_one(item)
@@ -644,6 +656,44 @@ async def delete_item(table_id: str, item_id: str, user: dict = Depends(get_curr
         raise HTTPException(status_code=404, detail="Item not found")
     await db.shared_items.delete_one({"id": item_id})
     return {"ok": True}
+
+
+@api.post("/tables/{table_id}/items/{item_id}/react")
+async def react_to_item(table_id: str, item_id: str, payload: ReactionIn, user: dict = Depends(get_current_user)):
+    await ensure_table_member(table_id, user["id"])
+    item = await db.shared_items.find_one({"id": item_id, "table_id": table_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    reactions = item.get("reactions") or {"praying": [], "amen": [], "heart": [], "thanks": []}
+    current = list(reactions.get(payload.type, []))
+    if user["id"] in current:
+        current.remove(user["id"])
+        action = "removed"
+    else:
+        current.append(user["id"])
+        action = "added"
+    reactions[payload.type] = current
+    await db.shared_items.update_one({"id": item_id}, {"$set": {"reactions": reactions}})
+    # Live broadcast so everyone's view updates
+    await ws_manager.broadcast_to_table(table_id, {
+        "type": "item_reaction", "table_id": table_id, "item_id": item_id,
+        "reactions": reactions, "reactor_id": user["id"],
+    })
+    return {"ok": True, "action": action, "reactions": reactions}
+
+
+@api.get("/tables/{table_id}/prayers")
+async def list_prayers(table_id: str, user: dict = Depends(get_current_user)):
+    """Prayer Wall — returns prayer + intention items for the table, with reactions."""
+    await ensure_table_member(table_id, user["id"])
+    items = await db.shared_items.find(
+        {"table_id": table_id, "type": {"$in": ["prayer", "intention"]}},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(500)
+    for it in items:
+        if "reactions" not in it:
+            it["reactions"] = {"praying": [], "amen": [], "heart": [], "thanks": []}
+    return items
 
 
 # ---------- File upload ----------
@@ -837,12 +887,14 @@ async def send_text(payload: TextIn, user: dict = Depends(get_current_user)):
 # ---------- Events ----------
 @api.get("/events")
 async def list_events(user: dict = Depends(get_current_user)):
-    # All events from tables the user is a member of + personal events (created_by self, no table)
     memberships = await db.table_members.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
     table_ids = [m["table_id"] for m in memberships]
     q = {"$or": [{"created_by": user["id"]}, {"table_id": {"$in": table_ids}}]}
     events = await db.events.find(q, {"_id": 0}).sort("date", 1).to_list(500)
-    return events
+    # Expand recurring events into virtual forward instances
+    expanded = _expand_recurring(events, days_forward=90)
+    expanded.sort(key=lambda e: e.get("date", ""))
+    return expanded
 
 
 @api.post("/events")
@@ -862,6 +914,7 @@ async def create_event(payload: EventIn, user: dict = Depends(get_current_user))
         "color": color or "#007AFF",
         "description": payload.description or "",
         "location": payload.location or "",
+        "recurring": payload.recurring or "none",
         "created_by": user["id"],
         "created_at": now_iso(),
     }
@@ -1122,6 +1175,108 @@ async def referral_leaderboard(user: dict = Depends(get_current_user)):
         u = await db.users.find_one({"id": row["_id"]}, {"_id": 0})
         if u:
             out.append({"user": user_public(u), "count": row["count"]})
+    return out
+
+
+# ---------- Templates + Recurring helpers (defined early for use in create_table) ----------
+PURPOSE_TEMPLATES = {
+    "family": {
+        "events": [{"title": "Family Dinner", "recurring": "weekly", "dow": 6, "time": "18:00", "description": "Weekly family meal together."}],
+        "items": [{"type": "intention", "name": "What we're grateful for this week", "note": "Drop a line about something good that happened."}],
+    },
+    "bible_study": {
+        "events": [{"title": "Weekly Bible Study", "recurring": "weekly", "dow": 2, "time": "19:00", "description": "Open your Bibles and your hearts."}],
+        "items": [
+            {"type": "prayer", "name": "Our prayer list", "note": "Share who we're lifting up in prayer this week."},
+            {"type": "intention", "name": "This week's focus verse", "note": "The verse we're studying or memorizing together."},
+        ],
+    },
+    "community": {
+        "events": [{"title": "Monthly Potluck", "recurring": "monthly", "dow": 6, "time": "17:00", "description": "Bring a dish, meet a neighbor."}],
+        "items": [{"type": "note", "name": "Community announcements", "note": "Share news and updates with the group."}],
+    },
+    "friends": {
+        "events": [{"title": "Saturday Hangout", "recurring": "weekly", "dow": 6, "time": "19:00", "description": "Whatever, whenever — we figure it out together."}],
+        "items": [],
+    },
+    "work": {
+        "events": [{"title": "Weekly Sync", "recurring": "weekly", "dow": 1, "time": "10:00", "description": "Quick check-in. Blockers? Wins? Next steps?"}],
+        "items": [],
+    },
+    "other": {"events": [], "items": []},
+}
+
+
+def _next_dow(target_dow: int) -> str:
+    """Returns YYYY-MM-DD of the next occurrence of target_dow (Mon=0..Sun=6), >= today."""
+    today = datetime.now(timezone.utc).date()
+    delta = (target_dow - today.weekday()) % 7
+    return (today + timedelta(days=delta)).isoformat()
+
+
+async def _seed_template(table_id: str, purpose: str, user_id: str, color: str):
+    tpl = PURPOSE_TEMPLATES.get(purpose) or PURPOSE_TEMPLATES["other"]
+    for ev in tpl.get("events", []):
+        date = _next_dow(ev.get("dow", 0))
+        await db.events.insert_one({
+            "id": new_id(),
+            "title": ev["title"],
+            "date": date,
+            "time": ev.get("time", "12:00"),
+            "table_id": table_id,
+            "color": color,
+            "description": ev.get("description", ""),
+            "location": "",
+            "recurring": ev.get("recurring", "none"),
+            "created_by": user_id,
+            "created_at": now_iso(),
+        })
+    user_doc = await db.users.find_one({"id": user_id}, {"_id": 0})
+    user_name = user_doc.get("name") if user_doc else "Host"
+    for it in tpl.get("items", []):
+        await db.shared_items.insert_one({
+            "id": new_id(),
+            "table_id": table_id,
+            "shared_by": user_id,
+            "shared_by_name": user_name,
+            "type": it["type"],
+            "name": it["name"],
+            "url": it.get("note"),
+            "reactions": {"praying": [], "amen": [], "heart": [], "thanks": []},
+            "created_at": now_iso(),
+        })
+
+
+def _expand_recurring(events: list, days_forward: int = 90) -> list:
+    """Given a list of events, virtually expand recurring=weekly/monthly up to days_forward."""
+    out = []
+    today = datetime.now(timezone.utc).date()
+    end_date = today + timedelta(days=days_forward)
+    for e in events:
+        out.append(e)
+        rec = e.get("recurring") or "none"
+        if rec not in ("weekly", "monthly"):
+            continue
+        try:
+            base = datetime.fromisoformat(e["date"]).date()
+        except Exception:
+            continue
+        step_days = 7 if rec == "weekly" else 30
+        cur = base
+        instance = 0
+        while True:
+            cur = cur + timedelta(days=step_days)
+            instance += 1
+            if cur > end_date or instance > 40:
+                break
+            if cur < today:
+                continue
+            clone = dict(e)
+            clone["date"] = cur.isoformat()
+            clone["id"] = f"{e['id']}::r{instance}"
+            clone["_virtual"] = True
+            clone["_parent_id"] = e["id"]
+            out.append(clone)
     return out
 
 

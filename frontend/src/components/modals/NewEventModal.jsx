@@ -6,7 +6,7 @@ import { toast } from "sonner";
 export default function NewEventModal({ tables = [], onClose, onCreated }) {
   const [form, setForm] = useState({
     title: "", date: new Date().toISOString().slice(0, 10), time: "12:00",
-    table_id: "", description: "", location: "",
+    table_id: "", description: "", location: "", recurring: "none",
   });
   const [busy, setBusy] = useState(false);
 
@@ -42,6 +42,26 @@ export default function NewEventModal({ tables = [], onClose, onCreated }) {
               <label style={lbl}>Time</label>
               <input type="time" className="input" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} data-testid="event-time" style={{ marginTop: 6 }} />
             </div>
+          </div>
+          <label style={lbl}>Repeats</label>
+          <div style={{ display: "flex", gap: 6, margin: "8px 0 12px" }}>
+            {[
+              { k: "none", l: "Once" },
+              { k: "weekly", l: "Weekly" },
+              { k: "monthly", l: "Monthly" },
+            ].map((r) => (
+              <button
+                key={r.k}
+                onClick={() => setForm({ ...form, recurring: r.k })}
+                data-testid={`event-recurring-${r.k}`}
+                style={{
+                  flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer",
+                  fontSize: 12, fontWeight: 600,
+                  border: form.recurring === r.k ? "2px solid var(--mac-blue)" : "1px solid var(--border-color)",
+                  background: form.recurring === r.k ? "rgba(0,122,255,0.1)" : "var(--bg-secondary)",
+                  color: form.recurring === r.k ? "var(--mac-blue)" : "var(--text-primary)",
+                }}>{r.l}</button>
+            ))}
           </div>
           <label style={lbl}>Table (optional)</label>
           <select className="input" value={form.table_id} onChange={(e) => setForm({ ...form, table_id: e.target.value })} data-testid="event-table" style={{ margin: "6px 0 10px" }}>
