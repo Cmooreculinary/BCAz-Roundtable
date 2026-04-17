@@ -97,7 +97,39 @@ Built specifically for families, Bible study groups, and community groups (with 
 - **Purpose picker** in CreateTableModal — 6-tile grid with distinct icon + color + hint.
 - **Prayer & Intention** new shared-item types. Prayer uses HeartHandshake icon (purple); Intention uses Sparkles (yellow). Textarea prompt on ShareItemModal. Items render with their own icons/colors on the RoundTableViz surface.
 
-## Phase 4 — Backlog
+## Phase 4 / "Depth & Devotion" — Implemented (Feb 2026)
+
+Built to give Bible study groups, families, and community groups real spiritual and organizational depth.
+
+### Prayer Wall
+- **`GET /api/tables/{id}/prayers`** — returns prayer + intention items (newest first, reactions hydrated, membership-gated).
+- **Prayer Wall tab** inside TableView with count badge of active prayers + intentions.
+- Cards show type badge (Prayer purple / Intention yellow), body text, author + time ago, and 4 reaction pills.
+- Empty state: "The wall is quiet" → prompts to share a prayer.
+
+### Reactions on shared items
+- **`POST /api/tables/{id}/items/{item_id}/react`** — toggles user in `reactions.{praying|amen|heart|thanks}` array.
+- Initialized on all new shared items: `{praying: [], amen: [], heart: [], thanks: []}`.
+- Live-broadcast over WebSocket (`item_reaction` event) so every viewer's count updates instantly.
+- Pills highlight with tier color when toggled on, show count inline; toast confirms "🙏 You're lifting them up" for praying.
+
+### Recurring events
+- **`EventIn.recurring`** → `none | weekly | monthly`.
+- Stored once; **`GET /api/events` virtually expands** up to 90 days forward with `::rN` id suffix and `_virtual=true` flag — no DB bloat.
+- Weekly event → ~12–13 visible instances; monthly → ~3.
+- NewEventModal has segmented "Repeats" control (Once / Weekly / Monthly).
+- Table's Upcoming Events + Calendar both show "↻ weekly / monthly" badge on recurring titles.
+
+### Purpose-based starter templates
+Auto-seed when creating a table based on purpose picker:
+- **Bible Study:** weekly "Weekly Bible Study" event + "Our prayer list" prayer + "This week's focus verse" intention.
+- **Family:** weekly "Family Dinner" + "What we're grateful for this week" intention.
+- **Community:** monthly "Monthly Potluck" + "Community announcements" note.
+- **Friends:** weekly "Saturday Hangout".
+- **Work:** weekly "Weekly Sync".
+- **Other:** nothing (opt-out default).
+
+## Phase 5 — Backlog
 ### P0
 - Real WebRTC walkie + video (signaling already runs through WS layer now)
 - Web Push notifications (browser-level alerts when tab is closed) — needs VAPID keys
@@ -127,3 +159,4 @@ See `/app/memory/test_credentials.md`
 - **Iteration 1 (Phase 1, Feb 2026):** Backend 40/40 (100%), Frontend 95% — HelpTip z-index fixed.
 - **Iteration 2 (Phase 2 Slice A, Feb 2026):** Backend 51/51 (100%), Frontend 100% — MessagesView import fixed.
 - **Iteration 3 (Phase 3 "Growth & Gather", Feb 2026):** Backend 32/32 (100%), Frontend 100% — zero regressions.
+- **Iteration 4 (Phase 4 "Depth & Devotion", Feb 2026):** Backend 34/34 (100%), Frontend 100% — zero regressions.
