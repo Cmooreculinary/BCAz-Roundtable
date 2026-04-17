@@ -35,6 +35,16 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@roundtable.app")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "roundtable2026")
 APP_NAME = os.environ.get("APP_NAME", "roundtable")
 EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
+VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL", "mailto:admin@roundtable.app")
+
+# SMS/Email bridge (optional, uses Twilio and Resend)
+TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+TWILIO_FROM_NUMBER = os.environ.get("TWILIO_FROM_NUMBER")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "noreply@roundtable.app")
 
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()]
 
@@ -232,6 +242,168 @@ class WSManager:
 ws_manager = WSManager()
 
 
+# ---------- Active Calls (in-memory) ----------
+# call_id -> { table_id, type ("audio"|"video"), participants: {user_id}, created_by, created_at }
+active_calls: dict = {}
+# user_id -> call_id (quick lookup)
+user_call_map: dict = {}
+
+
+async def _handle_webrtc_message(user_id: str, msg: dict):
+    """Process WebRTC signaling messages received over the WebSocket."""
+    msg_type = msg.get("type")
+
+    if msg_type == "call_start":
+        call_id = msg.get("call_id") or new_id()
+        table_id = msg.get("table_id")
+        call_type = msg.get("call_type", "video")  # "audio" or "video"
+        target_user = msg.get("target_user")  # for direct 1:1 calls
+
+        active_calls[call_id] = {
+            "call_id": call_id,
+            "table_id": table_id,
+            "type": call_type,
+            "participants": {user_id},
+            "created_by": user_id,
+            "created_at": now_iso(),
+        }
+        user_call_map[user_id] = call_id
+
+        caller = await db.users.find_one({"id": user_id}, {"_id": 0})
+        caller_info = user_public(caller) if caller else {"id": user_id, "name": "Someone"}
+
+        incoming_payload = {
+            "type": "call_incoming",
+            "call_id": call_id,
+            "call_type": call_type,
+            "table_id": table_id,
+            "caller": caller_info,
+        }
+
+        if target_user:
+            # Direct 1:1 call — only notify the target
+            await ws_manager.send_to_user(target_user, incoming_payload)
+            if not ws_manager.is_online(target_user):
+                await send_push_to_user(target_user, f"Incoming {call_type} call", f"{caller_info.get('name', 'Someone')} is calling you", {"type": "call", "call_id": call_id})
+        elif table_id:
+            # Table-wide call — notify all table members except caller
+            await ws_manager.broadcast_to_table(table_id, incoming_payload, exclude_user=user_id)
+
+        # Confirm to caller
+        await ws_manager.send_to_user(user_id, {
+            "type": "call_started",
+            "call_id": call_id,
+            "call_type": call_type,
+            "participants": list(active_calls[call_id]["participants"]),
+        })
+        logger.info(f"Call {call_id} started by {user_id} (type={call_type})")
+
+    elif msg_type == "call_join":
+        call_id = msg.get("call_id")
+        if not call_id or call_id not in active_calls:
+            await ws_manager.send_to_user(user_id, {"type": "call_error", "error": "Call not found or ended"})
+            return
+
+        call = active_calls[call_id]
+        existing_participants = list(call["participants"])
+        call["participants"].add(user_id)
+        user_call_map[user_id] = call_id
+
+        joiner = await db.users.find_one({"id": user_id}, {"_id": 0})
+        joiner_info = user_public(joiner) if joiner else {"id": user_id, "name": "Someone"}
+
+        # Notify all existing participants that a new peer joined
+        for pid in existing_participants:
+            await ws_manager.send_to_user(pid, {
+                "type": "call_peer_joined",
+                "call_id": call_id,
+                "peer": joiner_info,
+                "participants": list(call["participants"]),
+            })
+
+        # Tell the joiner who is already in the call
+        peer_infos = []
+        for pid in existing_participants:
+            p = await db.users.find_one({"id": pid}, {"_id": 0})
+            if p:
+                peer_infos.append(user_public(p))
+        await ws_manager.send_to_user(user_id, {
+            "type": "call_joined",
+            "call_id": call_id,
+            "call_type": call["type"],
+            "existing_peers": peer_infos,
+            "participants": list(call["participants"]),
+        })
+        logger.info(f"User {user_id} joined call {call_id}")
+
+    elif msg_type == "call_leave":
+        call_id = msg.get("call_id") or user_call_map.get(user_id)
+        if call_id and call_id in active_calls:
+            call = active_calls[call_id]
+            call["participants"].discard(user_id)
+            user_call_map.pop(user_id, None)
+
+            leaver = await db.users.find_one({"id": user_id}, {"_id": 0})
+            leaver_info = user_public(leaver) if leaver else {"id": user_id}
+
+            for pid in list(call["participants"]):
+                await ws_manager.send_to_user(pid, {
+                    "type": "call_peer_left",
+                    "call_id": call_id,
+                    "peer": leaver_info,
+                    "participants": list(call["participants"]),
+                })
+
+            # Clean up empty calls
+            if not call["participants"]:
+                active_calls.pop(call_id, None)
+                logger.info(f"Call {call_id} ended (empty)")
+            logger.info(f"User {user_id} left call {call_id}")
+
+    elif msg_type == "webrtc_offer":
+        target = msg.get("target_user")
+        if target:
+            await ws_manager.send_to_user(target, {
+                "type": "webrtc_offer",
+                "from_user": user_id,
+                "call_id": msg.get("call_id"),
+                "sdp": msg.get("sdp"),
+            })
+
+    elif msg_type == "webrtc_answer":
+        target = msg.get("target_user")
+        if target:
+            await ws_manager.send_to_user(target, {
+                "type": "webrtc_answer",
+                "from_user": user_id,
+                "call_id": msg.get("call_id"),
+                "sdp": msg.get("sdp"),
+            })
+
+    elif msg_type == "webrtc_ice":
+        target = msg.get("target_user")
+        if target:
+            await ws_manager.send_to_user(target, {
+                "type": "webrtc_ice",
+                "from_user": user_id,
+                "call_id": msg.get("call_id"),
+                "candidate": msg.get("candidate"),
+            })
+
+    elif msg_type == "walkie_talk_state":
+        # Broadcast talking state to all call participants
+        call_id = msg.get("call_id") or user_call_map.get(user_id)
+        if call_id and call_id in active_calls:
+            for pid in active_calls[call_id]["participants"]:
+                if pid != user_id:
+                    await ws_manager.send_to_user(pid, {
+                        "type": "walkie_talk_state",
+                        "from_user": user_id,
+                        "talking": msg.get("talking", False),
+                        "call_id": call_id,
+                    })
+
+
 # ---------- Object storage ----------
 def init_storage() -> Optional[str]:
     global _storage_key
@@ -396,6 +568,8 @@ async def startup():
     await db.invites.create_index("code", unique=True)
     await db.contacts.create_index("owner_id")
     await db.referrals.create_index("inviter_id")
+    await db.push_subscriptions.create_index("user_id")
+    await db.push_subscriptions.create_index("endpoint", unique=True)
     # Seed admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:
@@ -780,6 +954,9 @@ async def send_message(payload: MessageIn, user: dict = Depends(get_current_user
         await ws_manager.broadcast_to_table(payload.table_id, {"type": "message", "message": m})
     else:
         await ws_manager.send_to_users([payload.to_user, user["id"]], {"type": "message", "message": m})
+    # Push notification if recipient is offline
+    if payload.to_user and payload.to_user != user["id"] and not ws_manager.is_online(payload.to_user):
+        await send_push_to_user(payload.to_user, f"Message from {user['name']}", payload.text[:120], {"type": "message"})
     return m
 
 
@@ -991,6 +1168,9 @@ async def walkie_ping(payload: WalkiePingIn, user: dict = Depends(get_current_us
     await db.notifications.insert_one(dict(note))
     note.pop("_id", None)
     await ws_manager.send_to_user(payload.to_user, {"type": "walkie_ping", "notification": note})
+    # Push notification if user is offline
+    if not ws_manager.is_online(payload.to_user):
+        await send_push_to_user(payload.to_user, "Walkie Ping", f"{user['name']} is pinging you!", {"type": "walkie", "from_user": user["id"]})
     return {"ok": True}
 
 
@@ -1280,6 +1460,180 @@ def _expand_recurring(events: list, days_forward: int = 90) -> list:
     return out
 
 
+# ---------- Web Push Notifications ----------
+class PushSubscriptionIn(BaseModel):
+    endpoint: str
+    keys: dict  # {p256dh, auth}
+
+
+@api.get("/push/vapid-key")
+async def get_vapid_key():
+    """Public endpoint — returns the VAPID public key for subscription."""
+    if not VAPID_PUBLIC_KEY:
+        raise HTTPException(status_code=503, detail="Push not configured")
+    return {"public_key": VAPID_PUBLIC_KEY}
+
+
+@api.post("/push/subscribe")
+async def push_subscribe(payload: PushSubscriptionIn, user: dict = Depends(get_current_user)):
+    """Register a push subscription for the current user."""
+    sub_doc = {
+        "user_id": user["id"],
+        "endpoint": payload.endpoint,
+        "keys": payload.keys,
+        "created_at": now_iso(),
+    }
+    # Upsert by endpoint
+    await db.push_subscriptions.update_one(
+        {"endpoint": payload.endpoint},
+        {"$set": sub_doc},
+        upsert=True,
+    )
+    return {"ok": True}
+
+
+@api.post("/push/unsubscribe")
+async def push_unsubscribe(payload: PushSubscriptionIn, user: dict = Depends(get_current_user)):
+    await db.push_subscriptions.delete_one({"endpoint": payload.endpoint, "user_id": user["id"]})
+    return {"ok": True}
+
+
+async def send_push_to_user(user_id: str, title: str, body: str, data: dict = None):
+    """Best-effort push notification to all subscriptions for a user."""
+    if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
+        return
+    subs = await db.push_subscriptions.find({"user_id": user_id}, {"_id": 0}).to_list(20)
+    if not subs:
+        return
+    import json as _push_json
+    from pywebpush import webpush, WebPushException
+    payload = _push_json.dumps({
+        "title": title,
+        "body": body,
+        "data": data or {},
+        "icon": "/logo192.png",
+        "badge": "/logo192.png",
+    })
+    dead_endpoints = []
+    for sub in subs:
+        try:
+            webpush(
+                subscription_info={"endpoint": sub["endpoint"], "keys": sub["keys"]},
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={"sub": VAPID_CLAIMS_EMAIL, "aud": sub["endpoint"].split("/", 3)[0] + "//" + sub["endpoint"].split("/")[2]},
+            )
+        except WebPushException as e:
+            if e.response and e.response.status_code in (404, 410):
+                dead_endpoints.append(sub["endpoint"])
+            else:
+                logger.warning(f"Push failed for {user_id}: {e}")
+        except Exception as e:
+            logger.warning(f"Push error: {e}")
+    # Cleanup dead subscriptions
+    if dead_endpoints:
+        await db.push_subscriptions.delete_many({"endpoint": {"$in": dead_endpoints}})
+
+
+# ---------- External Bridges (SMS via Twilio, Email via Resend) ----------
+class ExternalBridgeStatus(BaseModel):
+    sms_configured: bool = False
+    email_configured: bool = False
+
+
+@api.get("/bridges/status")
+async def bridge_status(user: dict = Depends(get_current_user)):
+    """Check which external bridges are configured."""
+    return ExternalBridgeStatus(
+        sms_configured=bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER),
+        email_configured=bool(RESEND_API_KEY),
+    )
+
+
+class SMSBridgeIn(BaseModel):
+    phone: str
+    message: str = Field(min_length=1, max_length=1600)
+
+
+class EmailBridgeIn(BaseModel):
+    to_email: str
+    subject: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=50000)
+
+
+@api.post("/bridges/sms")
+async def send_sms_bridge(payload: SMSBridgeIn, user: dict = Depends(get_current_user)):
+    """Send an SMS to an external number via Twilio."""
+    if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER):
+        raise HTTPException(status_code=503, detail="SMS bridge not configured. Admin needs to add Twilio credentials.")
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json",
+                auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
+                data={
+                    "From": TWILIO_FROM_NUMBER,
+                    "To": payload.phone,
+                    "Body": f"[Round Table] {user['name']}: {payload.message}",
+                },
+            )
+            resp.raise_for_status()
+            return {"ok": True, "sid": resp.json().get("sid")}
+    except Exception as e:
+        logger.error(f"SMS bridge error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to send SMS")
+
+
+@api.post("/bridges/email")
+async def send_email_bridge(payload: EmailBridgeIn, user: dict = Depends(get_current_user)):
+    """Send an email to an external address via Resend."""
+    if not RESEND_API_KEY:
+        raise HTTPException(status_code=503, detail="Email bridge not configured. Admin needs to add Resend API key.")
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "from": f"Round Table <{RESEND_FROM_EMAIL}>",
+                    "to": [payload.to_email],
+                    "subject": payload.subject,
+                    "html": f"<p>{payload.body}</p><hr><p><small>Sent via Round Table by {user['name']}</small></p>",
+                },
+            )
+            resp.raise_for_status()
+            return {"ok": True, "id": resp.json().get("id")}
+    except Exception as e:
+        logger.error(f"Email bridge error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to send email")
+
+
+# ---------- Active Calls REST ----------
+@api.get("/calls/active")
+async def get_active_calls(table_id: Optional[str] = None, user: dict = Depends(get_current_user)):
+    """Get active calls, optionally filtered by table."""
+    out = []
+    for cid, call in active_calls.items():
+        if table_id and call.get("table_id") != table_id:
+            continue
+        participants_info = []
+        for pid in call["participants"]:
+            p = await db.users.find_one({"id": pid}, {"_id": 0})
+            if p:
+                participants_info.append(user_public(p))
+        out.append({
+            "call_id": cid,
+            "table_id": call.get("table_id"),
+            "type": call["type"],
+            "participants": participants_info,
+            "created_by": call["created_by"],
+            "created_at": call["created_at"],
+        })
+    return out
+
+
 # ---------- Health ----------
 @api.get("/")
 async def root():
@@ -1397,7 +1751,6 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.send_text(_json.dumps({"type": "ready", "user_id": user_id}))
         while True:
             data = await websocket.receive_text()
-            # Heartbeat / typing indicators
             try:
                 msg = _json.loads(data)
             except Exception:
@@ -1408,11 +1761,33 @@ async def websocket_endpoint(websocket: WebSocket):
                 await ws_manager.send_to_user(msg["to_user"], {
                     "type": "typing", "from_user": user_id, "table_id": msg.get("table_id")
                 })
+            elif msg.get("type") in (
+                "call_start", "call_join", "call_leave",
+                "webrtc_offer", "webrtc_answer", "webrtc_ice",
+                "walkie_talk_state",
+            ):
+                await _handle_webrtc_message(user_id, msg)
     except WebSocketDisconnect:
         pass
     except Exception:
         pass
     finally:
+        # Clean up any active calls for this user on disconnect
+        call_id = user_call_map.pop(user_id, None)
+        if call_id and call_id in active_calls:
+            call = active_calls[call_id]
+            call["participants"].discard(user_id)
+            leaver = await db.users.find_one({"id": user_id}, {"_id": 0})
+            leaver_info = user_public(leaver) if leaver else {"id": user_id}
+            for pid in list(call["participants"]):
+                await ws_manager.send_to_user(pid, {
+                    "type": "call_peer_left",
+                    "call_id": call_id,
+                    "peer": leaver_info,
+                    "participants": list(call["participants"]),
+                })
+            if not call["participants"]:
+                active_calls.pop(call_id, None)
         await ws_manager.disconnect(user_id, websocket)
 
 

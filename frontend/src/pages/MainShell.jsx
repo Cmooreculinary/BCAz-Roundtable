@@ -22,9 +22,11 @@ import ShareItemModal from "../components/modals/ShareItemModal";
 import InviteModal from "../components/modals/InviteModal";
 import VideoCallOverlay from "../components/modals/VideoCallOverlay";
 import PingToast from "../components/PingToast";
+import IncomingCallToast from "../components/IncomingCallToast";
 import BadgeUnlock from "../components/BadgeUnlock";
 import { api } from "../lib/api";
 import { useWebSocket, useRTEvent } from "../lib/realtime";
+import { subscribeToPush, isPushSupported, getPushPermission } from "../lib/push";
 
 const BADGE_THRESHOLDS = [1, 3, 10, 25];
 
@@ -37,6 +39,7 @@ export default function MainShell() {
   const [notifications, setNotifications] = useState([]);
   const [ping, setPing] = useState(null);
   const [badge, setBadge] = useState(null);
+  const [incomingCall, setIncomingCall] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modals, setModals] = useState({
     createTable: false, newEvent: false, addContact: false,
@@ -46,6 +49,13 @@ export default function MainShell() {
 
   // Activate WebSocket
   useWebSocket(true);
+
+  // Auto-subscribe to push if previously granted
+  useEffect(() => {
+    if (isPushSupported() && getPushPermission() === "granted") {
+      subscribeToPush().catch(() => {});
+    }
+  }, []);
 
   const openModal = (name, props = {}) => { setModalProps(props); setModals((m) => ({ ...m, [name]: true })); };
   const closeModal = (name) => setModals((m) => ({ ...m, [name]: false }));
@@ -79,12 +89,13 @@ export default function MainShell() {
     switch (evt.type) {
       case "walkie_ping":
         setPing(evt.notification);
-        // Optimistically prepend to notifications
         setNotifications((n) => [evt.notification, ...n]);
+        break;
+      case "call_incoming":
+        setIncomingCall(evt);
         break;
       case "presence":
       case "user_updated":
-        // Refresh tables membership view to update online dots
         loadTables();
         break;
       case "item_added":
@@ -114,6 +125,7 @@ export default function MainShell() {
         setModals({ createTable: false, newEvent: false, addContact: false, shareItem: false, invite: false, videoCall: false });
         setPing(null);
         setBadge(null);
+        setIncomingCall(null);
         setSidebarOpen(false);
       }
     };
@@ -135,10 +147,25 @@ export default function MainShell() {
     const p = ping;
     setPing(null);
     if (p?.from_user) {
-      // Open video call overlay with the pinger
       const member = (tables.flatMap((t) => t.members || [])).find((m) => m.id === p.from_user);
       openModal("videoCall", { target: member || { id: p.from_user, name: p.from_name, color: p.from_color, initials: p.from_initials } });
     }
+  };
+
+  const answerIncomingCall = () => {
+    const call = incomingCall;
+    setIncomingCall(null);
+    if (call) {
+      openModal("videoCall", {
+        incomingCallId: call.call_id,
+        callType: call.call_type,
+        target: call.caller,
+      });
+    }
+  };
+
+  const declineIncomingCall = () => {
+    setIncomingCall(null);
   };
 
   return (
@@ -184,9 +211,10 @@ export default function MainShell() {
       {modals.addContact && <AddContactModal onClose={() => closeModal("addContact")} onCreated={() => closeModal("addContact")} />}
       {modals.shareItem && <ShareItemModal tables={modalProps.tables || tables} defaultTable={modalProps.defaultTable} onClose={() => closeModal("shareItem")} onShared={() => { closeModal("shareItem"); loadTables(); }} />}
       {modals.invite && <InviteModal tables={modalProps.tables || tables} defaultTable={modalProps.defaultTable} onClose={() => closeModal("invite")} />}
-      {modals.videoCall && <VideoCallOverlay target={modalProps.target} onClose={() => closeModal("videoCall")} />}
+      {modals.videoCall && <VideoCallOverlay target={modalProps.target} incomingCallId={modalProps.incomingCallId} callType={modalProps.callType} onClose={() => closeModal("videoCall")} />}
 
       <PingToast ping={ping} onAnswer={answerPing} onDismiss={() => setPing(null)} />
+      <IncomingCallToast call={incomingCall} onAnswer={answerIncomingCall} onDecline={declineIncomingCall} />
       <BadgeUnlock unlock={badge} onClose={() => setBadge(null)} />
     </div>
   );

@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { formatApiErrorDetail } from "../lib/api";
-import { User, Palette, Activity, LogOut } from "lucide-react";
+import { User, Palette, Activity, LogOut, Bell, BellOff } from "lucide-react";
+import { subscribeToPush, unsubscribeFromPush, isPushSupported, getPushPermission } from "../lib/push";
 
 const COLORS = ["#007AFF", "#34C759", "#FF9500", "#FF3B30", "#AF52DE", "#FF2D55", "#FFCC00", "#5AC8FA"];
 
@@ -12,6 +13,25 @@ export default function Settings() {
   const [color, setColor] = useState(user?.color || "#007AFF");
   const [status, setStatus] = useState(user?.status || "online");
   const [busy, setBusy] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const pushSupported = isPushSupported();
+
+  useEffect(() => {
+    setPushEnabled(getPushPermission() === "granted");
+  }, []);
+
+  const togglePush = async () => {
+    if (pushEnabled) {
+      await unsubscribeFromPush();
+      setPushEnabled(false);
+      toast.success("Push notifications disabled");
+    } else {
+      const ok = await subscribeToPush();
+      setPushEnabled(ok);
+      if (ok) toast.success("Push notifications enabled!");
+      else toast.error("Could not enable push notifications");
+    }
+  };
 
   const save = async () => {
     setBusy(true);
@@ -61,6 +81,25 @@ export default function Settings() {
           <button className="btn btn-primary" onClick={save} disabled={busy} data-testid="settings-save" style={{ minWidth: 140 }}>{busy ? "Saving…" : "Save Changes"}</button>
         </div>
       </div>
+
+      {pushSupported && (
+        <div className="card" style={{ padding: 16, marginTop: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                {pushEnabled ? <Bell size={14} color="var(--mac-green)" /> : <BellOff size={14} />}
+                Push Notifications
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                {pushEnabled ? "You'll receive alerts even when the tab is closed" : "Enable to get notified of pings, messages & calls"}
+              </div>
+            </div>
+            <button className={`btn ${pushEnabled ? "btn-secondary" : "btn-primary"}`} onClick={togglePush} data-testid="settings-push-toggle">
+              {pushEnabled ? "Disable" : "Enable"}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ padding: 16, marginTop: 14 }}>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Keyboard Shortcuts</div>
