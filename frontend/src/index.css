@@ -545,14 +545,16 @@ body {
 
 /* ---------- Help tooltip ---------- */
 .help-tip {
-  position: absolute;
+  position: fixed;
   background: var(--mac-blue);
   color: #fff; padding: 10px 14px; border-radius: var(--radius-md);
   font-size: 12px; line-height: 1.4; max-width: 260px;
   box-shadow: var(--shadow-lg);
-  z-index: 60;
+  z-index: 35; /* below title-bar (40) so it never blocks title-bar buttons */
   animation: fadeIn 0.3s ease;
+  pointer-events: auto;
 }
+.help-tip button { pointer-events: auto; }
 
 /* ---------- Calendar grid ---------- */
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }

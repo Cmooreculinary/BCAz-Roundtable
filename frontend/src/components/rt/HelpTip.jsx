@@ -6,12 +6,15 @@ export default function HelpTip({ section, text, position = "top-right" }) {
   const key = `rt-help-${section}`;
   const [show, setShow] = useState(() => !localStorage.getItem(key));
 
+  // Auto-dismiss after 8s so it doesn't linger and block UI
   useEffect(() => {
-    if (show) {
-      const t = setTimeout(() => {}, 0);
-      return () => clearTimeout(t);
-    }
-  }, [show]);
+    if (!show) return;
+    const t = setTimeout(() => {
+      localStorage.setItem(key, "1");
+      setShow(false);
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [show, key]);
 
   if (!show) return null;
 
@@ -20,12 +23,13 @@ export default function HelpTip({ section, text, position = "top-right" }) {
     setShow(false);
   };
 
+  // Position below the title bar (52px) so it never overlaps title-bar controls
   const positionStyle =
     position === "top-right"
-      ? { top: 16, right: 16 }
+      ? { top: 68, right: 16 }
       : position === "bottom-right"
         ? { bottom: 120, right: 16 }
-        : { top: 16, left: 16 };
+        : { top: 68, left: 260 };
 
   return (
     <div className="help-tip" style={positionStyle} data-testid={`help-${section}`}>
