@@ -1612,8 +1612,14 @@ async def send_sms_bridge(payload: SMSBridgeIn, user: dict = Depends(get_current
                     "Body": f"[Round Table] {user['name']}: {payload.message}",
                 },
             )
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                err_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                err_msg = err_data.get("message", resp.text[:200])
+                logger.warning(f"Twilio SMS error: {err_msg}")
+                raise HTTPException(status_code=resp.status_code, detail=err_msg)
             return {"ok": True, "sid": resp.json().get("sid")}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"SMS bridge error: {e}")
         raise HTTPException(status_code=502, detail="Failed to send SMS")
