@@ -77,7 +77,27 @@
 - Walkie ping toast (slide-in from top-right, Answer/Later buttons, double beep, 7s auto-dismiss) — Answer opens VideoCallOverlay
 - Founders badge celebration — modal fires at referral milestones (1 Newcomer / 3 Host / 10 Connector / 25 Community Builder) with animated trophy
 
-## Phase 3 — Backlog
+## Phase 3 / "Growth & Gather" — Implemented (Feb 2026)
+
+Built specifically for families, Bible study groups, and community groups (with orphanages as the mission beneficiary via proceeds).
+
+### Growth loop
+- **Public `/join/:code` landing page** — no-auth preview with table name, purpose badge, inviter avatar + member count. Invalid/expired codes show friendly error. Guests see "Create Account & Join" (stashes code in sessionStorage → post-registration `PendingInviteHandler` routes back to `/join/:code`).
+- **GET `/api/invites/preview/{code}`** — public endpoint returning table + inviter preview (404 / 410 handled).
+- **ShareBadge** on BadgeUnlock — creates invite, uses `navigator.share` with clipboard fallback, displays copyable `/join/{code}` URL.
+
+### AI assist (Claude Sonnet 4.5)
+- **`POST /api/tables/{id}/suggest-events`** — calls Claude via `emergentintegrations` + Universal LLM key. Returns 3 tailored events `{title, date, time, description, reason, color}` based on the table's purpose. Graceful error handling (returns empty list, never 500).
+- Uses `claude-sonnet-4-5-20250929` model with structured JSON prompt + defensive parsing.
+- Purpose guidance built-in (family → meals/birthdays/game nights, bible_study → studies/prayer/fellowship, community → potlucks/help projects, etc.).
+- **SmartSuggestions widget** in TableView — "Ask Claude" button fetches suggestions, one-click "Add" creates the event.
+
+### Bible study / community depth
+- **Table purpose field** on create/edit — 6 options: `family`, `bible_study`, `community`, `friends`, `work`, `other`. Drives the AI context and UI badges.
+- **Purpose picker** in CreateTableModal — 6-tile grid with distinct icon + color + hint.
+- **Prayer & Intention** new shared-item types. Prayer uses HeartHandshake icon (purple); Intention uses Sparkles (yellow). Textarea prompt on ShareItemModal. Items render with their own icons/colors on the RoundTableViz surface.
+
+## Phase 4 — Backlog
 ### P0
 - Real WebRTC walkie + video (signaling already runs through WS layer now)
 - Web Push notifications (browser-level alerts when tab is closed) — needs VAPID keys
@@ -105,4 +125,5 @@ See `/app/memory/test_credentials.md`
 
 ## Test Status
 - **Iteration 1 (Phase 1, Feb 2026):** Backend 40/40 (100%), Frontend 95% — HelpTip z-index fixed.
-- **Iteration 2 (Phase 2 Slice A, Feb 2026):** Backend 51/51 (100% — 40 Phase 1 + 11 Phase 2 WebSocket), Frontend 100% — missing useRTEvent import in MessagesView fixed.
+- **Iteration 2 (Phase 2 Slice A, Feb 2026):** Backend 51/51 (100%), Frontend 100% — MessagesView import fixed.
+- **Iteration 3 (Phase 3 "Growth & Gather", Feb 2026):** Backend 32/32 (100%), Frontend 100% — zero regressions.
