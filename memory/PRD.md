@@ -57,33 +57,52 @@
 - Contextual help tooltips (auto-dismiss in 8s, dismissible, persisted)
 - Escape key dismisses all overlays
 
-## Phase 2 — Backlog
+## Phase 2 / Slice A — Implemented (Feb 2026)
+
+### Real-time layer
+- WebSocket endpoint `/api/ws` with cookie auth + fallback `?token=` query param
+- `WSManager` class with per-user connection tracking, presence updates, table broadcasts, contact broadcasts
+- Live events emitted: `presence`, `user_updated`, `message`, `text`, `walkie_ping`, `item_added`, `referral_joined`, `typing`
+- Presence flips user status to `online`/`offline` in DB automatically on connect/disconnect
+- Frontend `useWebSocket` + `useRTEvent` hooks with shared event bus (auto-reconnect, ping/pong keepalive every 25s)
+- Polling intervals reduced: notifications 60s (was 20s), table chat 30s (was 8s) — WS handles instant updates
+- TableView + MessagesView live-append messages/items/presence changes without refresh
+
+### Bonus pack
+- Settings page (`/settings`) — edit name/color/status, sign-out, keyboard shortcuts reference
+- Settings cog icon in title bar
+- Mobile sidebar drawer with hamburger toggle, backdrop, Escape/nav/click-outside close
+- Responsive CSS for mobile (table viz shrinks, 2-col layouts stack, dock compact)
+- PWA installable — manifest.json + minimal service worker registered in index.js
+- Walkie ping toast (slide-in from top-right, Answer/Later buttons, double beep, 7s auto-dismiss) — Answer opens VideoCallOverlay
+- Founders badge celebration — modal fires at referral milestones (1 Newcomer / 3 Host / 10 Connector / 25 Community Builder) with animated trophy
+
+## Phase 3 — Backlog
 ### P0
-- Real WebRTC walkie talkie + video call (currently UI-only)
-- Real-time updates (WebSockets or SSE) — currently 8–20s polling
-- Push notifications (Web Push API)
-- Mobile-optimized layouts (sidebar drawer, comms tab routing)
+- Real WebRTC walkie + video (signaling already runs through WS layer now)
+- Web Push notifications (browser-level alerts when tab is closed) — needs VAPID keys
+- Offline support (Service Worker cache strategies beyond install-only)
 
 ### P1
-- Service Worker offline support
-- Activity feed per table (timeline of all actions)
-- AI features (smart event suggestions, message summaries — Universal LLM key already configured)
-- Table roles UI (owner/admin/member management screen)
-- Notification preferences (per-channel toggles)
+- AI features via Universal LLM key — smart event suggestions, message summaries, onboarding copy assistant (user to be consulted before adding)
+- Activity feed per table (timeline of all table actions)
+- Email/SMS bridge (Resend + Twilio) — reach people who aren't online
+- Table roles management UI (owner/admin/member)
+- Notification preferences per channel
 
 ### P2
 - End-to-end encryption for messages
 - Per-table file/folder browser
-- Granular invite link routing (`/join/:code` deep link)
-- Real contact import from device address book
+- Granular invite deep links (`/join/:code`)
+- Device contact import
+- Analytics dashboard for table owners
 - Audit log + soft-delete recovery
-- Analytics dashboard for owners
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`
 - Admin: admin@roundtable.app / roundtable2026 (pre-seeded, onboarded)
 - Demo user can be created via /api/auth/register
 
-## Test Status (Iteration 1, Feb 2026)
-- Backend: 40/40 tests passed (100%)
-- Frontend: All major flows working (95%) — minor HelpTip overlay z-index fixed.
+## Test Status
+- **Iteration 1 (Phase 1, Feb 2026):** Backend 40/40 (100%), Frontend 95% — HelpTip z-index fixed.
+- **Iteration 2 (Phase 2 Slice A, Feb 2026):** Backend 51/51 (100% — 40 Phase 1 + 11 Phase 2 WebSocket), Frontend 100% — missing useRTEvent import in MessagesView fixed.
