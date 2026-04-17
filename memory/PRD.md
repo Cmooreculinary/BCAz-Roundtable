@@ -138,8 +138,14 @@
   - Direct messages they missed
   - New prayer/intention items at their tables
   - Missed incoming calls
+  - **Event reminders** — 1 hour before table events (background task checks every 10 min)
 - `send_auto_sms_if_offline()` helper checks: user offline, auto_sms=true, phone exists, Twilio configured
 - Phone number + auto_sms fields added to user profile (PUT /api/me, GET /api/auth/me)
+
+### Theme System
+- **Dark mode is now the default** — new users see dark theme on first visit
+- **Soft golden light mode** — replaced stark white with warm golden tint (#FEFCF3 base)
+- Theme persists in localStorage (`rt-theme`), toggleable via title bar sun/moon icon
 
 ## Backlog
 
@@ -171,3 +177,4 @@ See `/app/memory/test_credentials.md`
 - **Iteration 6 (Call History):** Backend 20/20 (100%), Frontend 100% — zero regressions
 - **Iteration 7 (Twilio SMS Bridge):** Backend 9/9 (100%), Frontend 100% — zero regressions
 - **Iteration 8 (Auto-SMS Opt-in):** Backend 18/18 (100%), Frontend 7/7 (100%) — zero regressions
+- **Iteration 9 (Dark Default + Golden Light + Event Reminders):** Backend 13/13 (100%), Frontend 9/9 (100%) — zero regressions
