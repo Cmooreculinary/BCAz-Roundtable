@@ -138,6 +138,8 @@ def user_public(u: dict) -> dict:
         "avatar_url": u.get("avatar_url"),
         "onboarded": bool(u.get("onboarded", False)),
         "role": u.get("role", "member"),
+        "phone": u.get("phone"),
+        "auto_sms": bool(u.get("auto_sms", False)),
         "created_at": u.get("created_at"),
     }
 
@@ -300,6 +302,7 @@ async def _handle_webrtc_message(user_id: str, msg: dict):
             await ws_manager.send_to_user(target_user, incoming_payload)
             if not ws_manager.is_online(target_user):
                 await send_push_to_user(target_user, f"Incoming {call_type} call", f"{caller_info.get('name', 'Someone')} is calling you", {"type": "call", "call_id": call_id})
+                await send_auto_sms_if_offline(target_user, f"{caller_info.get('name', 'Someone')} tried to call you ({call_type}). Open Round Table to call back!")
         elif table_id:
             # Table-wide call — notify all table members except caller
             await ws_manager.broadcast_to_table(table_id, incoming_payload, exclude_user=user_id)
@@ -498,6 +501,8 @@ class UserUpdateIn(BaseModel):
     status: Optional[Literal["online", "away", "dnd", "offline"]] = None
     avatar_url: Optional[str] = None
     onboarded: Optional[bool] = None
+    phone: Optional[str] = Field(default=None, max_length=20)
+    auto_sms: Optional[bool] = None
 
 
 class TableIn(BaseModel):
@@ -853,6 +858,14 @@ async def add_item(table_id: str, payload: SharedItemIn, user: dict = Depends(ge
     await db.tables.update_one({"id": table_id}, {"$set": {"last_activity": now_iso()}})
     item.pop("_id", None)
     await ws_manager.broadcast_to_table(table_id, {"type": "item_added", "table_id": table_id, "item": item})
+    # Auto-SMS offline table members for prayer/intention items
+    if payload.type in ("prayer", "intention"):
+        t = await db.tables.find_one({"id": table_id}, {"_id": 0})
+        table_name = t["name"] if t else "a table"
+        members = await db.table_members.find({"table_id": table_id}, {"_id": 0}).to_list(500)
+        for m in members:
+            if m["user_id"] != user["id"]:
+                await send_auto_sms_if_offline(m["user_id"], f"{user['name']} shared a {payload.type} at {table_name}: \"{payload.name[:80]}\"")
     return item
 
 
@@ -991,6 +1004,7 @@ async def send_message(payload: MessageIn, user: dict = Depends(get_current_user
     # Push notification if recipient is offline
     if payload.to_user and payload.to_user != user["id"] and not ws_manager.is_online(payload.to_user):
         await send_push_to_user(payload.to_user, f"Message from {user['name']}", payload.text[:120], {"type": "message"})
+        await send_auto_sms_if_offline(payload.to_user, f"{user['name']}: {payload.text[:120]}")
     return m
 
 
@@ -1205,6 +1219,7 @@ async def walkie_ping(payload: WalkiePingIn, user: dict = Depends(get_current_us
     # Push notification if user is offline
     if not ws_manager.is_online(payload.to_user):
         await send_push_to_user(payload.to_user, "Walkie Ping", f"{user['name']} is pinging you!", {"type": "walkie", "from_user": user["id"]})
+        await send_auto_sms_if_offline(payload.to_user, f"{user['name']} is pinging you on the walkie!")
     return {"ok": True}
 
 
@@ -1567,6 +1582,37 @@ async def send_push_to_user(user_id: str, title: str, body: str, data: dict = No
     # Cleanup dead subscriptions
     if dead_endpoints:
         await db.push_subscriptions.delete_many({"endpoint": {"$in": dead_endpoints}})
+
+
+async def send_auto_sms_if_offline(user_id: str, message: str):
+    """Send an SMS to a user if they're offline, have auto_sms enabled, and have a phone number."""
+    if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER):
+        return
+    if ws_manager.is_online(user_id):
+        return
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        return
+    if not user.get("auto_sms") or not user.get("phone"):
+        return
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json",
+                auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
+                data={
+                    "From": TWILIO_FROM_NUMBER,
+                    "To": user["phone"],
+                    "Body": f"[Round Table] {message}",
+                },
+            )
+            if resp.status_code < 300:
+                logger.info(f"Auto-SMS sent to {user_id}")
+            else:
+                logger.warning(f"Auto-SMS failed for {user_id}: {resp.text[:200]}")
+    except Exception as e:
+        logger.warning(f"Auto-SMS error for {user_id}: {e}")
 
 
 # ---------- External Bridges (SMS via Twilio, Email via Resend) ----------

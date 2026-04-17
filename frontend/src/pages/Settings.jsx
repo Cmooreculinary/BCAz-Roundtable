@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
-import { formatApiErrorDetail } from "../lib/api";
-import { User, Palette, Activity, LogOut, Bell, BellOff } from "lucide-react";
+import { api, formatApiErrorDetail } from "../lib/api";
+import { User, Palette, Activity, LogOut, Bell, BellOff, Phone, MessageSquare } from "lucide-react";
 import { subscribeToPush, unsubscribeFromPush, isPushSupported, getPushPermission } from "../lib/push";
 
 const COLORS = ["#007AFF", "#34C759", "#FF9500", "#FF3B30", "#AF52DE", "#FF2D55", "#FFCC00", "#5AC8FA"];
@@ -14,10 +14,14 @@ export default function Settings() {
   const [status, setStatus] = useState(user?.status || "online");
   const [busy, setBusy] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [autoSms, setAutoSms] = useState(user?.auto_sms || false);
+  const [smsConfigured, setSmsConfigured] = useState(false);
   const pushSupported = isPushSupported();
 
   useEffect(() => {
     setPushEnabled(getPushPermission() === "granted");
+    api.get("/bridges/status").then((r) => setSmsConfigured(r.data?.sms_configured || false)).catch(() => {});
   }, []);
 
   const togglePush = async () => {
@@ -36,7 +40,7 @@ export default function Settings() {
   const save = async () => {
     setBusy(true);
     try {
-      await updateMe({ name: name.trim(), color, status });
+      await updateMe({ name: name.trim(), color, status, phone: phone.trim() || null, auto_sms: autoSms });
       toast.success("Profile updated");
     } catch (e) {
       toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
@@ -75,6 +79,40 @@ export default function Settings() {
           <option value="away">Away</option>
           <option value="dnd">Do Not Disturb</option>
         </select>
+
+        <label style={lbl}><Phone size={11} /> Phone Number</label>
+        <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 123-4567" maxLength={20} data-testid="settings-phone" style={{ margin: "6px 0 16px" }} />
+
+        {smsConfigured && (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "12px 14px", borderRadius: 10, marginBottom: 20,
+            background: autoSms ? "rgba(52, 199, 89, 0.08)" : "var(--bg-secondary)",
+            border: `1px solid ${autoSms ? "rgba(52, 199, 89, 0.3)" : "var(--border-light)"}`,
+            transition: "all 0.2s",
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                <MessageSquare size={13} color={autoSms ? "var(--mac-green)" : "var(--text-secondary)"} />
+                Text me when I miss something
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                {autoSms
+                  ? phone ? "You'll get SMS for pings, messages, prayers & calls when offline" : "Add your phone number above to activate"
+                  : "Get SMS alerts for pings, messages, prayers & missed calls"}
+              </div>
+            </div>
+            <button
+              className={`btn ${autoSms ? "btn-secondary" : "btn-primary"}`}
+              onClick={() => setAutoSms(!autoSms)}
+              disabled={!phone.trim()}
+              data-testid="settings-auto-sms-toggle"
+              style={{ opacity: phone.trim() ? 1 : 0.5 }}
+            >
+              {autoSms ? "On" : "Off"}
+            </button>
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: 8, justifyContent: "space-between", flexWrap: "wrap" }}>
           <button className="btn btn-danger" onClick={logout} data-testid="settings-logout"><LogOut size={13} /> Sign Out</button>
