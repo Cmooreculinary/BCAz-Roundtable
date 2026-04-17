@@ -1,5 +1,5 @@
 import React from "react";
-import { Home, Calendar, MessageSquare, Grid3x3, Users, Plus, Radio } from "lucide-react";
+import { Home, Calendar, MessageSquare, Grid3x3, Users, Plus, Radio, PhoneCall } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
 export default function Sidebar({ tables = [], activeTableId, currentPath, onNav, onSelectTable, onCreateTable, mobileOpen = false, onMobileClose }) {
@@ -10,6 +10,7 @@ export default function Sidebar({ tables = [], activeTableId, currentPath, onNav
     { key: "/calendar", label: "Calendar", icon: <Calendar size={15} /> },
     { key: "/messages", label: "Messages", icon: <MessageSquare size={15} /> },
     { key: "/walkie", label: "Walkie Talkie", icon: <Radio size={15} /> },
+    { key: "/call-history", label: "Call History", icon: <PhoneCall size={15} /> },
     { key: "/apps", label: "Apps", icon: <Grid3x3 size={15} /> },
     { key: "/contacts", label: "Contacts", icon: <Users size={15} /> },
   ];

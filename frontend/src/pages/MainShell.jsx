@@ -14,6 +14,7 @@ import InvitesView from "../views/InvitesView";
 import NotificationsView from "../views/NotificationsView";
 import MessagesView from "../views/MessagesView";
 import WalkieView from "../views/WalkieView";
+import CallHistoryView from "../views/CallHistoryView";
 import Settings from "./Settings";
 import CreateTableModal from "../components/modals/CreateTableModal";
 import NewEventModal from "../components/modals/NewEventModal";
@@ -195,6 +196,7 @@ export default function MainShell() {
             <Route path="/messages" element={<Communications tables={tables} onVideoCall={(target) => openModal("videoCall", { target })} />} />
             <Route path="/messages/full" element={<MessagesView onVideoCall={(target) => openModal("videoCall", { target })} />} />
             <Route path="/walkie" element={<WalkieView onVideoCall={(target) => openModal("videoCall", { target })} />} />
+            <Route path="/call-history" element={<CallHistoryView onVideoCall={(target, type) => openModal("videoCall", { target, callType: type })} />} />
             <Route path="/calendar" element={<CalendarView onNew={() => openModal("newEvent", { tables })} tables={tables} />} />
             <Route path="/apps" element={<AppsView />} />
             <Route path="/contacts" element={<ContactsView onAdd={() => openModal("addContact")} onInvite={() => openModal("invite", { tables })} />} />

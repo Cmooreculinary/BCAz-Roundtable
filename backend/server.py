@@ -266,8 +266,23 @@ async def _handle_webrtc_message(user_id: str, msg: dict):
             "participants": {user_id},
             "created_by": user_id,
             "created_at": now_iso(),
+            "target_user": target_user,
         }
         user_call_map[user_id] = call_id
+
+        # Persist call log to DB
+        await db.call_logs.insert_one({
+            "call_id": call_id,
+            "table_id": table_id,
+            "type": call_type,
+            "created_by": user_id,
+            "target_user": target_user,
+            "participants": [user_id],
+            "started_at": now_iso(),
+            "ended_at": None,
+            "duration_seconds": 0,
+            "status": "active",
+        })
 
         caller = await db.users.find_one({"id": user_id}, {"_id": 0})
         caller_info = user_public(caller) if caller else {"id": user_id, "name": "Someone"}
@@ -308,6 +323,12 @@ async def _handle_webrtc_message(user_id: str, msg: dict):
         existing_participants = list(call["participants"])
         call["participants"].add(user_id)
         user_call_map[user_id] = call_id
+
+        # Update call log with new participant
+        await db.call_logs.update_one(
+            {"call_id": call_id},
+            {"$addToSet": {"participants": user_id}},
+        )
 
         joiner = await db.users.find_one({"id": user_id}, {"_id": 0})
         joiner_info = user_public(joiner) if joiner else {"id": user_id, "name": "Someone"}
@@ -356,8 +377,19 @@ async def _handle_webrtc_message(user_id: str, msg: dict):
 
             # Clean up empty calls
             if not call["participants"]:
+                # Finalize call log
+                started = call.get("created_at", now_iso())
+                try:
+                    start_dt = datetime.fromisoformat(started)
+                    duration = int((datetime.now(timezone.utc) - start_dt).total_seconds())
+                except Exception:
+                    duration = 0
+                await db.call_logs.update_one(
+                    {"call_id": call_id},
+                    {"$set": {"ended_at": now_iso(), "duration_seconds": duration, "status": "ended"}},
+                )
                 active_calls.pop(call_id, None)
-                logger.info(f"Call {call_id} ended (empty)")
+                logger.info(f"Call {call_id} ended (empty, duration={duration}s)")
             logger.info(f"User {user_id} left call {call_id}")
 
     elif msg_type == "webrtc_offer":
@@ -570,6 +602,8 @@ async def startup():
     await db.referrals.create_index("inviter_id")
     await db.push_subscriptions.create_index("user_id")
     await db.push_subscriptions.create_index("endpoint", unique=True)
+    await db.call_logs.create_index([("participants", 1), ("started_at", -1)])
+    await db.call_logs.create_index("call_id", unique=True)
     # Seed admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:
@@ -1634,6 +1668,35 @@ async def get_active_calls(table_id: Optional[str] = None, user: dict = Depends(
     return out
 
 
+@api.get("/calls/history")
+async def get_call_history(user: dict = Depends(get_current_user)):
+    """Get call history for the current user (last 30 days, per-user)."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    logs = await db.call_logs.find(
+        {"participants": user["id"], "started_at": {"$gte": cutoff}},
+        {"_id": 0},
+    ).sort("started_at", -1).to_list(200)
+
+    # Hydrate participant info
+    for log in logs:
+        participant_infos = []
+        for pid in log.get("participants", []):
+            p = await db.users.find_one({"id": pid}, {"_id": 0})
+            if p:
+                participant_infos.append(user_public(p))
+        log["participant_details"] = participant_infos
+        # Hydrate caller
+        caller = await db.users.find_one({"id": log.get("created_by")}, {"_id": 0})
+        log["caller"] = user_public(caller) if caller else None
+        # Hydrate target
+        if log.get("target_user"):
+            target = await db.users.find_one({"id": log["target_user"]}, {"_id": 0})
+            log["target"] = user_public(target) if target else None
+        else:
+            log["target"] = None
+    return logs
+
+
 # ---------- Health ----------
 @api.get("/")
 async def root():
@@ -1787,6 +1850,17 @@ async def websocket_endpoint(websocket: WebSocket):
                     "participants": list(call["participants"]),
                 })
             if not call["participants"]:
+                # Finalize call log on disconnect cleanup
+                started = call.get("created_at", now_iso())
+                try:
+                    start_dt = datetime.fromisoformat(started)
+                    duration = int((datetime.now(timezone.utc) - start_dt).total_seconds())
+                except Exception:
+                    duration = 0
+                await db.call_logs.update_one(
+                    {"call_id": call_id},
+                    {"$set": {"ended_at": now_iso(), "duration_seconds": duration, "status": "ended"}},
+                )
                 active_calls.pop(call_id, None)
         await ws_manager.disconnect(user_id, websocket)
 
