@@ -749,6 +749,10 @@ async def get_me(user: dict = Depends(get_current_user)):
 @api.put("/me")
 async def update_me(payload: UserUpdateIn, user: dict = Depends(get_current_user)):
     updates = {k: v for k, v in payload.model_dump(exclude_none=True).items()}
+    # Handle avatar_url explicitly - allow setting to None to clear avatar
+    raw_data = payload.model_dump(exclude_unset=True)
+    if "avatar_url" in raw_data and raw_data["avatar_url"] is None:
+        updates["avatar_url"] = None
     if "name" in updates:
         updates["initials"] = initials_of(updates["name"])
     if updates:
@@ -1935,6 +1939,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 "walkie_talk_state",
             ):
                 await _handle_webrtc_message(user_id, msg)
+            elif msg.get("type") in ("present_start", "present_sync", "present_stop"):
+                # Relay presentation events to all table members
+                table_id = msg.get("table_id")
+                if table_id:
+                    payload = {**msg, "from_user": user_id}
+                    await ws_manager.broadcast_to_table(table_id, payload, exclude_user=user_id)
     except WebSocketDisconnect:
         pass
     except Exception:

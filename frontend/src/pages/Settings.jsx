@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { api, formatApiErrorDetail } from "../lib/api";
-import { User, Palette, Activity, LogOut, Bell, BellOff, Phone, MessageSquare } from "lucide-react";
+import { User, Palette, Activity, LogOut, Bell, BellOff, Phone, MessageSquare, Camera } from "lucide-react";
 import { subscribeToPush, unsubscribeFromPush, isPushSupported, getPushPermission } from "../lib/push";
+import AvatarPicker from "../components/AvatarPicker";
 
 const COLORS = ["#007AFF", "#34C759", "#FF9500", "#FF3B30", "#AF52DE", "#FF2D55", "#FFCC00", "#5AC8FA"];
 
@@ -17,6 +18,7 @@ export default function Settings() {
   const [phone, setPhone] = useState(user?.phone || "");
   const [autoSms, setAutoSms] = useState(user?.auto_sms || false);
   const [smsConfigured, setSmsConfigured] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const pushSupported = isPushSupported();
 
   useEffect(() => {
@@ -53,7 +55,20 @@ export default function Settings() {
 
       <div className="card" style={{ padding: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
-          <div className="avatar" style={{ width: 64, height: 64, background: color, fontSize: 22 }}>{(name || user?.name || "?").split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase()}</div>
+          <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setShowAvatarPicker(true)} data-testid="settings-avatar-edit">
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt="Avatar" style={{ width: 64, height: 64, borderRadius: 16, objectFit: "cover" }} />
+            ) : (
+              <div className="avatar" style={{ width: 64, height: 64, background: color, fontSize: 22 }}>{(name || user?.name || "?").split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase()}</div>
+            )}
+            <div style={{
+              position: "absolute", bottom: -2, right: -2, width: 22, height: 22, borderRadius: "50%",
+              background: "var(--mac-blue)", border: "2px solid var(--bg-primary)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Camera size={10} color="#fff" />
+            </div>
+          </div>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{name || user?.name}</div>
             <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{user?.email}</div>
@@ -145,6 +160,19 @@ export default function Settings() {
         <Row k="Click + on Tables" v="Create a new Round Table" />
         <Row k="Hold the Talk button" v="Walkie talkie push-to-talk" />
       </div>
+
+      {showAvatarPicker && (
+        <AvatarPicker
+          currentUrl={user?.avatar_url}
+          onSelect={async (url) => {
+            try {
+              await updateMe({ avatar_url: url });
+              toast.success(url ? "Avatar updated!" : "Switched to initials");
+            } catch { toast.error("Could not update avatar"); }
+          }}
+          onClose={() => setShowAvatarPicker(false)}
+        />
+      )}
     </div>
   );
 }

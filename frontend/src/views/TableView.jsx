@@ -4,12 +4,13 @@ import { api, formatApiErrorDetail } from "../lib/api";
 import RoundTableViz from "../components/rt/RoundTableViz";
 import EmptyState from "../components/rt/EmptyState";
 import HelpTip from "../components/rt/HelpTip";
-import { Share2, UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare, HeartHandshake, Armchair } from "lucide-react";
+import { Share2, UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare, HeartHandshake, Armchair, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useRTEvent } from "../lib/realtime";
 import SmartSuggestions from "../components/SmartSuggestions";
 import PrayerWall from "../components/PrayerWall";
+import FileViewerModal from "../components/modals/FileViewerModal";
 
 export default function TableView({ onShare, onInvite, onVideoCall }) {
   const { id } = useParams();
@@ -19,6 +20,8 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
   const [messages, setMessages] = useState([]);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("table");
+  const [viewingItem, setViewingItem] = useState(null);
+  const [incomingPresentation, setIncomingPresentation] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +58,17 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
     }
     if (evt.type === "presence" || evt.type === "user_updated") {
       load();
+    }
+    if (evt.type === "present_start" && evt.table_id === id) {
+      // Someone is presenting a file — open the viewer
+      const presentItem = { id: evt.item_id, name: evt.item_name, url: evt.item_url, mime_type: evt.item_mime, shared_by_name: "Presenter" };
+      setIncomingPresentation(presentItem);
+      setViewingItem(presentItem);
+      toast.info(`Someone is presenting "${evt.item_name}"`);
+    }
+    if (evt.type === "present_stop" && evt.table_id === id) {
+      setIncomingPresentation(null);
+      toast.info("Presentation ended");
     }
   }, [id, load]);
 
@@ -148,7 +162,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
             {(!table.items || table.items.length === 0) ? (
               <EmptyState icon={<UploadCloud size={28} />} title="This table is empty" subtitle="Share something to get it started." action={<button className="btn btn-primary" onClick={() => onShare?.(table)} data-testid="table-items-empty-share">Share Item</button>} testId="table-items-empty" />
             ) : table.items.slice(0, 6).map((it) => (
-              <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-light)" }}>
+              <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-light)", cursor: it.url ? "pointer" : "default" }} onClick={() => it.url && setViewingItem(it)} data-testid={`table-item-${it.id}`}>
                 <div style={{ width: 30, height: 30, borderRadius: 8, background: table.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {it.type === "photo" ? <Image size={14} /> : <FileText size={14} />}
                 </div>
@@ -211,6 +225,15 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
           </div>
         </div>
       </div>
+      )}
+
+      {viewingItem && (
+        <FileViewerModal
+          item={viewingItem}
+          tableId={id}
+          isPresenting={!!incomingPresentation && incomingPresentation.id === viewingItem.id}
+          onClose={() => { setViewingItem(null); setIncomingPresentation(null); }}
+        />
       )}
     </div>
   );
