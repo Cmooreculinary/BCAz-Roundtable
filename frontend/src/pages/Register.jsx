@@ -28,6 +28,15 @@ export default function Register() {
 
   return (
     <div className="onboard-bg">
+      <div style={{
+        position: "fixed", top: 18, right: 18, zIndex: 210,
+        background: "#1a3a6b", color: "#fff",
+        padding: "6px 16px", borderRadius: 8,
+        fontSize: 12, fontWeight: 700, letterSpacing: 1.5,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+      }} data-testid="beta-badge">
+        BETA
+      </div>
       <div className="onboard-card" style={{ maxWidth: 420 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
           <div
