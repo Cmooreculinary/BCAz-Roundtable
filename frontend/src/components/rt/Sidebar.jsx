@@ -1,6 +1,7 @@
 import React from "react";
 import { Home, Calendar, MessageSquare, Grid3x3, Users, Plus, Radio, PhoneCall } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import UserAvatar from "../UserAvatar";
 
 export default function Sidebar({ tables = [], activeTableId, currentPath, onNav, onSelectTable, onCreateTable, mobileOpen = false, onMobileClose }) {
   const { user } = useAuth();
@@ -68,10 +69,7 @@ export default function Sidebar({ tables = [], activeTableId, currentPath, onNav
       <div style={{ marginTop: "auto", padding: "12px 10px 8px", borderTop: "1px solid var(--border-light)", display: "flex", alignItems: "center", gap: 10 }}>
         {user && (
           <>
-            <div className="avatar" style={{ width: 32, height: 32, background: user.color || "#007AFF", fontSize: 12, position: "relative" }}>
-              {user.initials}
-              <span style={{ position: "absolute", bottom: 0, right: 0, width: 9, height: 9, borderRadius: "50%", background: "var(--mac-green)", border: "2px solid var(--bg-sidebar)" }} />
-            </div>
+            <UserAvatar user={user} size={32} style={{ position: "relative" }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</div>
               <div style={{ fontSize: 10, color: "var(--mac-green)" }}>Online</div>

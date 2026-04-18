@@ -10,18 +10,23 @@ import {
   setAudioEnabled, sendTalkState,
 } from "../lib/webrtc";
 import HelpTip from "../components/rt/HelpTip";
+import UserAvatar from "../components/UserAvatar";
 
 function beep(freq = 880, dur = 0.12) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-    osc.connect(gain); gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
-    osc.start(); osc.stop(ctx.currentTime + dur);
+    const play = (f, start, d) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = f;
+      osc.connect(gain); gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + d);
+      osc.start(ctx.currentTime + start); osc.stop(ctx.currentTime + start + d);
+    };
+    play(freq, 0, dur);
+    play(freq * 1.25, dur + 0.05, dur);
   } catch { /* no-op */ }
 }
 
@@ -213,7 +218,7 @@ export default function WalkieView({ onVideoCall }) {
             <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Nobody's online. Ping later.</div>
           ) : online.map((m) => (
             <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border-light)" }}>
-              <div className="avatar" style={{ width: 32, height: 32, background: m.color, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" }}>{m.initials}</div>
+              <UserAvatar user={m} size={32} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
                 <div style={{ fontSize: 10, color: "var(--mac-green)" }}>Online</div>

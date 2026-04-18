@@ -11,6 +11,7 @@ import { useRTEvent } from "../lib/realtime";
 import SmartSuggestions from "../components/SmartSuggestions";
 import PrayerWall from "../components/PrayerWall";
 import FileViewerModal from "../components/modals/FileViewerModal";
+import UserAvatar from "../components/UserAvatar";
 
 export default function TableView({ onShare, onInvite, onVideoCall }) {
   const { id } = useParams();
@@ -146,7 +147,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
             </div>
             {(table.members || []).map((m) => (
               <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: "1px solid var(--border-light)" }}>
-                <div className="avatar" style={{ width: 32, height: 32, background: m.color, fontSize: 12 }}>{m.initials}</div>
+                <UserAvatar user={m} size={32} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
                   <div style={{ fontSize: 10, color: "var(--text-secondary)", textTransform: "capitalize" }}>{m.status}</div>
@@ -208,6 +209,11 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
                 <div key={m.id} className={`bubble ${m.from_user === user.id ? "me" : "them"}`} data-testid={`table-msg-${m.id}`}>
                   {m.from_user !== user.id && <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.7, marginBottom: 2 }}>{m.from_name}</div>}
                   {m.text}
+                  {m.from_user === user.id && (
+                    <div style={{ fontSize: 9, opacity: 0.5, textAlign: "right", marginTop: 2 }}>
+                      {m.read ? "Read" : "Sent"}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

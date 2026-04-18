@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { X, UploadCloud, Image, FileText, Video, Music, Link2, StickyNote, Sheet, Presentation, HeartHandshake, Sparkles } from "lucide-react";
+import { X, UploadCloud, Image, FileText, Video, Music, Link2, StickyNote, Sheet, Presentation, HeartHandshake, Sparkles, CheckCircle } from "lucide-react";
 import { api, API, formatApiErrorDetail } from "../../lib/api";
 import { toast } from "sonner";
 
@@ -23,6 +23,8 @@ export default function ShareItemModal({ tables = [], defaultTable, onClose, onS
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [fileSelected, setFileSelected] = useState(false);
   const fileRef = useRef();
 
   const submit = async () => {
@@ -48,13 +50,13 @@ export default function ShareItemModal({ tables = [], defaultTable, onClose, onS
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch(`${API}/upload`, { method: "POST", credentials: "include", body: fd });
+      const res = await fetch(`${API}/api/upload`, { method: "POST", credentials: "include", body: fd });
       if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
       const up = await res.json();
       await api.post(`/tables/${tableId}/items`, {
         type,
         name: name.trim() || file.name,
-        url: `${API}/files/${up.storage_path}`,
+        url: `${API}/api/files/${up.storage_path}`,
         file_size: up.size,
         mime_type: file.type,
       });
@@ -124,16 +126,23 @@ export default function ShareItemModal({ tables = [], defaultTable, onClose, onS
 
           {type !== "link" && type !== "note" && type !== "prayer" && type !== "intention" && (
             <div
-              onDragOver={(e) => { e.preventDefault(); }}
-              onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files?.[0] && fileRef.current) { fileRef.current.files = e.dataTransfer.files; } }}
-              style={{ border: "2px dashed var(--border-color)", borderRadius: 12, padding: 24, textAlign: "center", cursor: "pointer" }}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.[0] && fileRef.current) { fileRef.current.files = e.dataTransfer.files; setFileSelected(true); } }}
+              style={{
+                border: `2px dashed ${dragOver ? "var(--mac-blue)" : fileSelected ? "var(--mac-green)" : "var(--border-color)"}`,
+                borderRadius: 12, padding: 24, textAlign: "center", cursor: "pointer",
+                background: dragOver ? "rgba(0,122,255,0.06)" : fileSelected ? "rgba(52,199,89,0.06)" : "transparent",
+                transition: "all 0.2s",
+              }}
               onClick={() => fileRef.current?.click()}
               data-testid="share-drop"
             >
-              <UploadCloud size={28} color="var(--text-tertiary)" style={{ marginBottom: 8 }} />
-              <div style={{ fontSize: 13, fontWeight: 600 }}>Drop a file or click to browse</div>
+              {fileSelected ? <CheckCircle size={28} color="var(--mac-green)" style={{ marginBottom: 8 }} /> : <UploadCloud size={28} color={dragOver ? "var(--mac-blue)" : "var(--text-tertiary)"} style={{ marginBottom: 8 }} />}
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{fileSelected ? (fileRef.current?.files?.[0]?.name || "File selected") : dragOver ? "Drop it here!" : "Drop a file or click to browse"}</div>
               <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>Max 50MB</div>
-              <input ref={fileRef} type="file" style={{ display: "none" }} data-testid="share-file-input" />
+              <input ref={fileRef} type="file" style={{ display: "none" }} onChange={() => setFileSelected(!!fileRef.current?.files?.length)} data-testid="share-file-input" />
             </div>
           )}
         </div>

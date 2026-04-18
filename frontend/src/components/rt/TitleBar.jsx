@@ -1,6 +1,7 @@
 import React from "react";
 import { Bell, Moon, Sun, LogOut, Settings as SettingsIcon, Menu } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import UserAvatar from "../UserAvatar";
 
 export default function TitleBar({ notificationsCount = 0, onOpenNotifications, onOpenSettings, onToggleSidebar }) {
   const { user, logout } = useAuth();
@@ -43,7 +44,7 @@ export default function TitleBar({ notificationsCount = 0, onOpenNotifications, 
         </button>
         {user && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 10, borderLeft: "1px solid var(--border-light)" }} className="hide-on-mobile">
-            <div className="avatar" style={{ width: 26, height: 26, background: user.color || "#007AFF", fontSize: 11 }}>{user.initials}</div>
+            <UserAvatar user={user} size={26} />
             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{user.name}</div>
             <button className="btn btn-ghost" title="Sign out" onClick={logout} data-testid="logout-btn" style={{ padding: 4 }}>
               <LogOut size={14} />

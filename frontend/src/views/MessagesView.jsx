@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import EmptyState from "../components/rt/EmptyState";
 import { toast } from "sonner";
 import { useRTEvent } from "../lib/realtime";
+import UserAvatar from "../components/UserAvatar";
 
 export default function MessagesView({ onVideoCall }) {
   const { user } = useAuth();
@@ -61,8 +62,8 @@ export default function MessagesView({ onVideoCall }) {
           <div style={{ overflowY: "auto" }}>
             {filtered.map((m) => (
               <div key={m.id} onClick={() => open(m)} data-testid={`messages-person-${m.id}`} style={{ padding: 10, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", borderBottom: "1px solid var(--border-light)", background: active?.id === m.id ? "var(--bg-tertiary)" : "transparent" }}>
-                <div className="avatar" style={{ width: 34, height: 34, background: m.color, fontSize: 12, position: "relative" }}>
-                  {m.initials}
+                <div style={{ position: "relative" }}>
+                  <UserAvatar user={m} size={34} />
                   {m.status === "online" && <span style={{ position: "absolute", bottom: 0, right: 0, width: 10, height: 10, borderRadius: "50%", background: "var(--mac-green)", border: "2px solid var(--bg-secondary)" }} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -80,7 +81,7 @@ export default function MessagesView({ onVideoCall }) {
           ) : (
             <>
               <div style={{ padding: 12, borderBottom: "1px solid var(--border-light)", display: "flex", alignItems: "center", gap: 10 }}>
-                <div className="avatar" style={{ width: 34, height: 34, background: active.color, fontSize: 12 }}>{active.initials}</div>
+                <UserAvatar user={active} size={34} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{active.name}</div>
                   <div style={{ fontSize: 11, color: "var(--text-secondary)", textTransform: "capitalize" }}>{active.status}</div>
@@ -91,7 +92,14 @@ export default function MessagesView({ onVideoCall }) {
               <div style={{ flex: 1, padding: 14, display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
                 {messages.length === 0 && <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Start a conversation.</div>}
                 {messages.map((m) => (
-                  <div key={m.id} className={`bubble ${m.from_user === user?.id ? "me" : "them"}`}>{m.text}</div>
+                  <div key={m.id} className={`bubble ${m.from_user === user?.id ? "me" : "them"}`}>
+                    {m.text}
+                    {m.from_user === user?.id && (
+                      <div style={{ fontSize: 9, opacity: 0.5, textAlign: "right", marginTop: 2 }}>
+                        {m.read ? "Read" : "Sent"}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
               <div style={{ padding: 10, borderTop: "1px solid var(--border-light)", display: "flex", gap: 6 }}>
