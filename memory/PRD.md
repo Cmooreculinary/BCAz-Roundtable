@@ -164,6 +164,18 @@
   - Images: same image shown to all
 - WebSocket events: `present_start`, `present_sync`, `present_stop`
 
+### Enhanced Onboarding (6-Step, All Skippable)
+1. **Welcome** — intro + "Get Started" / "Complete later"
+2. **Your Look** — name, seat color, avatar picker (DiceBear)
+3. **Stay Connected** — phone number, auto-SMS toggle, push notifications toggle
+4. **Your First Table** — create table with name/color/active
+5. **Invite People** — generate invite code, share via SMS/email
+6. **All Set** — checklist summary of completed/skipped items
+- Every step has "Complete later" → marks as skipped
+- Completion status stored in localStorage (`rt-onboard-completed`)
+- **Portal reminder banner** — gentle nudge for skipped items (avatar, phone, push, table)
+- Banner is dismissible with X button
+
 ## Backlog
 
 ### Deferred Enhancement (user said "remember, don't build yet")
@@ -196,3 +208,4 @@ See `/app/memory/test_credentials.md`
 - **Iteration 8 (Auto-SMS Opt-in):** Backend 18/18 (100%), Frontend 7/7 (100%) — zero regressions
 - **Iteration 9 (Dark Default + Golden Light + Event Reminders):** Backend 13/13 (100%), Frontend 9/9 (100%) — zero regressions
 - **Iteration 10 (Avatars + File Viewer + Co-Viewing):** Backend 17/17 (100%), Frontend 100% — zero regressions
+- **Iteration 11 (Enhanced Onboarding):** Backend 13/13 (100%), Frontend 100% — zero regressions
