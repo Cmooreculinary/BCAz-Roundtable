@@ -211,37 +211,58 @@ function Stat({ label, value }) {
 function CommsHub() {
   const [tab, setTab] = useState("email");
   const [emails, setEmails] = useState([]);
+  const [unreadCounts, setUnreadCounts] = useState({ email: 0, texts: 0, chat: 0 });
 
   useEffect(() => {
-    if (tab === "email") api.get("/emails?folder=inbox").then((r) => setEmails(r.data || [])).catch(() => {});
-  }, [tab]);
+    api.get("/emails?folder=inbox").then((r) => {
+      const data = r.data || [];
+      setEmails(data);
+      setUnreadCounts((prev) => ({ ...prev, email: data.filter((e) => !e.read).length }));
+    }).catch((err) => console.error("Failed to load emails:", err));
+  }, []);
+
+  const TabBadge = ({ label, count, tabKey }) => (
+    <div className={`tab ${tab === tabKey ? "active" : ""}`} onClick={() => setTab(tabKey)} data-testid={`comms-tab-${tabKey}`} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <span>{label}</span>
+      {count > 0 && (
+        <span style={{
+          minWidth: 18, height: 18, borderRadius: 9, padding: "0 5px",
+          background: "var(--mac-red)", color: "#fff",
+          fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center",
+        }}>{count}</span>
+      )}
+    </div>
+  );
 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div className="tabs">
-        <div className={`tab ${tab === "email" ? "active" : ""}`} onClick={() => setTab("email")} data-testid="comms-tab-email"><Mail size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Email</div>
-        <div className={`tab ${tab === "texts" ? "active" : ""}`} onClick={() => setTab("texts")} data-testid="comms-tab-texts"><MessageSquare size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Texts</div>
-        <div className={`tab ${tab === "chat" ? "active" : ""}`} onClick={() => setTab("chat")} data-testid="comms-tab-chat"><Send size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Chat</div>
-        <div className={`tab ${tab === "walkie" ? "active" : ""}`} onClick={() => setTab("walkie")} data-testid="comms-tab-walkie"><Radio size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Walkie</div>
+      <div style={{ padding: "10px 16px 0", fontWeight: 700, fontSize: 16 }}>Communications Hub</div>
+      <div className="tabs" style={{ borderTop: "none" }}>
+        <TabBadge label="Email" count={unreadCounts.email} tabKey="email" />
+        <TabBadge label="Texts" count={unreadCounts.texts} tabKey="texts" />
+        <TabBadge label="Chat" count={unreadCounts.chat} tabKey="chat" />
+        <TabBadge label="Walkie" count={0} tabKey="walkie" />
       </div>
-      <div style={{ padding: 14, minHeight: 160 }}>
+      <div style={{ padding: "4px 14px 14px", minHeight: 140 }}>
         {tab === "email" && (
           emails.length === 0 ? (
             <EmptyState icon={<Inbox size={28} />} title="Inbox zero" subtitle="You're all caught up." testId="comms-email-empty" />
           ) : emails.slice(0, 3).map((e) => (
-            <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border-light)" }}>
-              <div className="avatar" style={{ width: 30, height: 30, background: "var(--mac-blue)", fontSize: 11 }}>{e.from_initials}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: e.read ? 400 : 600 }}>{e.from_name}</div>
-                <div style={{ fontSize: 12, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 480 }}>{e.subject}</div>
+            <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--border-light)" }}>
+              <div className="avatar" style={{ width: 34, height: 34, background: "var(--mac-blue)", fontSize: 12, borderRadius: "50%" }}>{e.from_initials}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: e.read ? 400 : 700 }}>{e.from_name}</div>
               </div>
-              {e.starred && <Star size={14} fill="var(--mac-yellow)" color="var(--mac-yellow)" />}
+              <div style={{ flex: 2, fontSize: 13, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.subject}</div>
+              <div style={{ fontSize: 12, color: "var(--text-tertiary)", flexShrink: 0 }}>
+                {e.created_at ? new Date(e.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : ""}
+              </div>
             </div>
           ))
         )}
-        {tab === "texts" && <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>Go to <a href="#/messages" style={{ color: "var(--mac-blue)" }}>Messages</a> to see full SMS threads.</div>}
-        {tab === "chat" && <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>Open <a href="#/messages/full" style={{ color: "var(--mac-blue)" }}>Messages</a> for chat conversations.</div>}
-        {tab === "walkie" && <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>Open <a href="#/walkie" style={{ color: "var(--mac-blue)" }}>Walkie Talkie</a> to push-to-talk with members.</div>}
+        {tab === "texts" && <div style={{ fontSize: 13, color: "var(--text-secondary)", padding: "16px 0" }}>Go to <a href="/messages" style={{ color: "var(--mac-blue)", textDecoration: "none" }}>Messages</a> to see full SMS threads.</div>}
+        {tab === "chat" && <div style={{ fontSize: 13, color: "var(--text-secondary)", padding: "16px 0" }}>Open <a href="/messages" style={{ color: "var(--mac-blue)", textDecoration: "none" }}>Messages</a> for chat conversations.</div>}
+        {tab === "walkie" && <div style={{ fontSize: 13, color: "var(--text-secondary)", padding: "16px 0" }}>Open <a href="/walkie" style={{ color: "var(--mac-blue)", textDecoration: "none" }}>Walkie Talkie</a> to push-to-talk with members.</div>}
       </div>
     </div>
   );

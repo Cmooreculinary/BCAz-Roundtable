@@ -193,8 +193,8 @@ export default function MainShell() {
           <Routes>
             <Route path="/" element={<Portal tables={tables} notifications={notifications} onOpenInvite={() => openModal("invite", { tables })} onOpenShare={() => openModal("shareItem", { tables })} onCreateTable={() => openModal("createTable")} onNewEvent={() => openModal("newEvent", { tables })} onGoto={nav} />} />
             <Route path="/table/:id" element={<TableView onShare={(table) => openModal("shareItem", { tables, defaultTable: table })} onInvite={(table) => openModal("invite", { tables, defaultTable: table })} onVideoCall={(target) => openModal("videoCall", { target })} />} />
-            <Route path="/messages" element={<Communications tables={tables} onVideoCall={(target) => openModal("videoCall", { target })} />} />
-            <Route path="/messages/full" element={<MessagesView onVideoCall={(target) => openModal("videoCall", { target })} />} />
+            <Route path="/messages" element={<MessagesView onVideoCall={(target) => openModal("videoCall", { target })} onWalkie={(target) => openModal("videoCall", { target, callType: "audio" })} />} />
+            <Route path="/communications" element={<Communications tables={tables} onVideoCall={(target) => openModal("videoCall", { target })} />} />
             <Route path="/walkie" element={<WalkieView onVideoCall={(target) => openModal("videoCall", { target })} />} />
             <Route path="/call-history" element={<CallHistoryView onVideoCall={(target, type) => openModal("videoCall", { target, callType: type })} />} />
             <Route path="/calendar" element={<CalendarView onNew={() => openModal("newEvent", { tables })} tables={tables} />} />
