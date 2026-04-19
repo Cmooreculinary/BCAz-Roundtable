@@ -176,6 +176,16 @@
 - **Portal reminder banner** — gentle nudge for skipped items (avatar, phone, push, table)
 - Banner is dismissible with X button
 
+### Soft Delete / Trash System (30-Day Recovery)
+- **Soft delete**: All deletes set `deleted_at` timestamp instead of removing data
+- **Restore**: `POST /api/trash/restore?collection=X&item_id=Y` — recover any trashed item
+- **Trash view**: `GET /api/trash` — see all trashed items grouped by collection
+- **Purge**: `DELETE /api/trash/purge` — permanently delete everything in trash
+- **Clear All**: Bulk trash available for invites, call history, notifications
+- **Supported resources**: invites, emails, messages, call logs, shared items, events, contacts, notifications
+- **All list queries** now exclude soft-deleted items (`deleted_at: {$exists: false}`)
+- **Frontend**: Red trash icons on every row (invites, contacts), Delete button on emails, Clear buttons on call history and notifications
+
 ## Backlog
 
 ### Deferred Enhancement (user said "remember, don't build yet")
@@ -211,3 +221,4 @@ See `/app/memory/test_credentials.md`
 - **Iteration 11 (Enhanced Onboarding):** Backend 13/13 (100%), Frontend 100% — zero regressions
 - **Iteration 12 (One-Sheet Polish):** Backend 11/11, Frontend 100%
 - **Iteration 13 (Code Quality Refactoring):** Backend 21/21 (100%), Frontend 100% — zero regressions
+- **Iteration 14 (Soft Delete / Trash System):** Backend 19/19 (100%), Frontend 100% — zero regressions
