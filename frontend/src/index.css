@@ -724,3 +724,7 @@ body {
     --ring: 211 100% 50%;
   }
 }
+
+/* Message delete on hover */
+.msg-row:hover .msg-delete-btn { opacity: 1 !important; }
+

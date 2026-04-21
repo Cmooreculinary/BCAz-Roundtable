@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { api } from "../lib/api";
-import { Search, Send, Paperclip, Phone, Video } from "lucide-react";
+import { Search, Send, Paperclip, Phone, Video, Trash2, MoreHorizontal } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { useRTEvent } from "../lib/realtime";
@@ -67,6 +67,27 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
     }
   };
 
+  const deleteMessage = async (msgId) => {
+    try {
+      await api.delete(`/messages/${msgId}`);
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+      toast.success("Message deleted");
+    } catch (err) {
+      toast.error("Could not delete message");
+    }
+  };
+
+  const clearConversation = async () => {
+    if (!active || !window.confirm(`Move all messages with ${active.name} to trash?`)) return;
+    try {
+      await api.delete(`/messages/clear/${active.id}`);
+      setMessages([]);
+      toast.success("Conversation cleared");
+    } catch (err) {
+      toast.error("Could not clear conversation");
+    }
+  };
+
   useRTEvent((evt) => {
     if (evt?.type === "message" && active) {
       const msg = evt.message;
@@ -78,10 +99,10 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
   }, [active]);
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-      <div className="card" style={{ padding: 0, display: "grid", gridTemplateColumns: "340px 1fr", minHeight: 560, overflow: "hidden" }}>
+    <div style={{ maxWidth: 1100, margin: "0 auto", height: "calc(100vh - 140px)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", height: "100%", background: "var(--bg-secondary)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-sm)", overflow: "hidden" }}>
         {/* Left panel — Conversations */}
-        <div style={{ borderRight: "1px solid var(--border-light)", display: "flex", flexDirection: "column" }}>
+        <div style={{ borderRight: "1px solid var(--border-light)", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
           {/* Search */}
           <div style={{ padding: "12px 14px" }}>
             <div style={{
@@ -186,6 +207,19 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
               >
                 <Video size={18} />
               </button>
+              <button
+                onClick={clearConversation}
+                className="btn btn-ghost"
+                data-testid="messages-clear-convo"
+                title="Clear conversation"
+                style={{
+                  width: 40, height: 40, borderRadius: "50%", padding: 0,
+                  background: "var(--bg-tertiary)", display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--mac-red)",
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
             </div>
 
             {/* Messages area */}
@@ -198,18 +232,35 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
               {messages.map((m) => {
                 const isMine = m.from_user === user?.id;
                 return (
-                  <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start", marginBottom: 4 }}>
-                    <div
-                      data-testid={`msg-bubble-${m.id}`}
-                      style={{
-                        maxWidth: "65%", padding: "10px 14px",
-                        borderRadius: isMine ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-                        background: isMine ? "var(--mac-blue)" : "var(--bg-tertiary)",
-                        color: isMine ? "#fff" : "var(--text-primary)",
-                        fontSize: 14, lineHeight: 1.45, wordBreak: "break-word",
-                      }}
-                    >
-                      {m.text}
+                  <div key={m.id} className="msg-row" style={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start", marginBottom: 4, position: "relative" }}>
+                    <div style={{ display: "flex", alignItems: isMine ? "center" : "center", gap: 4, flexDirection: isMine ? "row" : "row-reverse" }}>
+                      <button
+                        onClick={() => deleteMessage(m.id)}
+                        className="msg-delete-btn"
+                        data-testid={`msg-delete-${m.id}`}
+                        title="Delete message"
+                        style={{
+                          opacity: 0, width: 24, height: 24, borderRadius: "50%", border: "none",
+                          background: "var(--bg-tertiary)", color: "var(--mac-red)", cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          transition: "opacity 0.15s",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                      <div
+                        data-testid={`msg-bubble-${m.id}`}
+                        style={{
+                          maxWidth: "65%", padding: "10px 14px",
+                          borderRadius: isMine ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                          background: isMine ? "var(--mac-blue)" : "var(--bg-tertiary)",
+                          color: isMine ? "#fff" : "var(--text-primary)",
+                          fontSize: 14, lineHeight: 1.45, wordBreak: "break-word",
+                        }}
+                      >
+                        {m.text}
+                      </div>
                     </div>
                     <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 3, paddingLeft: isMine ? 0 : 4, paddingRight: isMine ? 4 : 0 }}>
                       {formatTime(m.created_at)}
