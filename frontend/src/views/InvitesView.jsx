@@ -3,6 +3,7 @@ import { api, formatApiErrorDetail } from "../lib/api";
 import { Copy, Plus, Users, Trophy, Phone, X, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import HelpTip from "../components/rt/HelpTip";
+import logger from "../lib/logger";
 
 export default function InvitesView({ tables, onOpenInvite }) {
   const [invites, setInvites] = useState([]);
@@ -15,9 +16,9 @@ export default function InvitesView({ tables, onOpenInvite }) {
   const [smsBusy, setSmsBusy] = useState(false);
 
   const load = useCallback(() => {
-    api.get("/invites").then((r) => setInvites(r.data || [])).catch((err) => console.error("Failed to load invites:", err));
-    api.get("/referrals").then((r) => setReferrals(r.data || {})).catch((err) => console.error("Failed to load referrals:", err));
-    api.get("/referrals/leaderboard").then((r) => setLeaderboard(r.data || [])).catch((err) => console.error("Failed to load leaderboard:", err));
+    api.get("/invites").then((r) => setInvites(r.data || [])).catch((err) => logger.error("Failed to load invites:", err));
+    api.get("/referrals").then((r) => setReferrals(r.data || {})).catch((err) => logger.error("Failed to load referrals:", err));
+    api.get("/referrals/leaderboard").then((r) => setLeaderboard(r.data || [])).catch((err) => logger.error("Failed to load leaderboard:", err));
   }, []);
 
   useEffect(() => {

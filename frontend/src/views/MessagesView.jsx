@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { useRTEvent } from "../lib/realtime";
 import UserAvatar from "../components/UserAvatar";
+import logger from "../lib/logger";
 
 function timeAgo(iso) {
   if (!iso) return "";
@@ -34,7 +35,7 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
   const chatEndRef = useRef(null);
 
   useEffect(() => {
-    api.get("/members").then((r) => setMembers(r.data || [])).catch((err) => console.error("Failed to load members:", err));
+    api.get("/members").then((r) => setMembers(r.data || [])).catch((err) => logger.error("Failed to load members:", err));
   }, []);
 
   const filteredMembers = useMemo(() => {
@@ -50,7 +51,7 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
       setMessages(data || []);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (err) {
-      console.error("Failed to load messages:", err);
+      logger.error("Failed to load messages:", err);
     }
   }, []);
 

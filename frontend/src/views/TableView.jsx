@@ -12,6 +12,7 @@ import SmartSuggestions from "../components/SmartSuggestions";
 import PrayerWall from "../components/PrayerWall";
 import FileViewerModal from "../components/modals/FileViewerModal";
 import UserAvatar from "../components/UserAvatar";
+import logger from "../lib/logger";
 
 export default function TableView({ onShare, onInvite, onVideoCall }) {
   const { id } = useParams();
@@ -37,7 +38,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
     try {
       const { data } = await api.get(`/messages?table_id=${id}`);
       setMessages(data || []);
-    } catch (err) { console.error('Load error:', err); }
+    } catch (err) { logger.error('Load error:', err); }
   }, [id]);
 
   useEffect(() => {

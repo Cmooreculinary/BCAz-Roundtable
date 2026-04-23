@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
+import logger from "./logger";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -10,7 +11,7 @@ export function onRTEvent(fn) {
 }
 function emit(evt) {
   listeners.forEach((fn) => {
-    try { fn(evt); } catch (err) { console.error("RT event listener error:", err); }
+    try { fn(evt); } catch (err) { logger.error("RT event listener error:", err); }
   });
 }
 
@@ -38,7 +39,7 @@ function connect(onOpen) {
     try {
       const data = JSON.parse(e.data);
       emit(data);
-    } catch (err) { console.error("WS message parse error:", err); }
+    } catch (err) { logger.error("WS message parse error:", err); }
   };
   socket.onclose = () => {
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }

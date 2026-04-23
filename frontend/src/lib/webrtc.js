@@ -5,6 +5,7 @@
  * Supports mesh topology for group calls (up to ~6 peers).
  */
 import { sendWS, onRTEvent } from "./realtime";
+import logger from "./logger";
 
 const ICE_SERVERS = [
   { urls: "stun:stun.l.google.com:19302" },
@@ -32,7 +33,7 @@ export function onCallStateChange(fn) {
 }
 function notifyStateChange(event, data) {
   stateListeners.forEach((fn) => {
-    try { fn(event, data); } catch (err) { console.error("Call state listener error:", err); }
+    try { fn(event, data); } catch (err) { logger.error("Call state listener error:", err); }
   });
 }
 
@@ -45,7 +46,7 @@ export async function getMedia(type = "video") {
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     return stream;
   } catch (err) {
-    console.error("getUserMedia failed:", err);
+    logger.error("getUserMedia failed:", err);
     throw err;
   }
 }
@@ -149,7 +150,7 @@ export function leaveCall() {
 
 function cleanup() {
   peers.forEach(({ pc }) => {
-    try { pc.close(); } catch (e) { console.error("PC close error:", e); }
+    try { pc.close(); } catch (e) { logger.error("PC close error:", e); }
   });
   peers.clear();
   stopLocalStream();
@@ -177,7 +178,7 @@ async function handlePeerLeft(data) {
   const peerId = data.peer?.id;
   if (peerId && peers.has(peerId)) {
     const { pc } = peers.get(peerId);
-    try { pc.close(); } catch (e) { console.error("PC close error:", e); }
+    try { pc.close(); } catch (e) { logger.error("PC close error:", e); }
     peers.delete(peerId);
   }
   notifyStateChange("peer_left", data);
@@ -195,7 +196,7 @@ async function createOfferForPeer(peerId) {
       sdp: pc.localDescription.toJSON(),
     });
   } catch (err) {
-    console.error("createOffer failed:", err);
+    logger.error("createOffer failed:", err);
   }
 }
 
@@ -222,7 +223,7 @@ async function handleOffer(data) {
       sdp: pc.localDescription.toJSON(),
     });
   } catch (err) {
-    console.error("handleOffer failed:", err);
+    logger.error("handleOffer failed:", err);
   }
 }
 
@@ -233,7 +234,7 @@ async function handleAnswer(data) {
   try {
     await entry.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
   } catch (err) {
-    console.error("handleAnswer failed:", err);
+    logger.error("handleAnswer failed:", err);
   }
 }
 
@@ -244,7 +245,7 @@ async function handleIce(data) {
   try {
     await entry.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
   } catch (err) {
-    console.error("addIceCandidate failed:", err);
+    logger.error("addIceCandidate failed:", err);
   }
 }
 

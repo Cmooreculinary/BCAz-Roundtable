@@ -6,6 +6,7 @@ import HelpTip from "../components/rt/HelpTip";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import UserAvatar from "../components/UserAvatar";
+import logger from "../lib/logger";
 
 export default function Communications({ tables, onVideoCall }) {
   const [tab, setTab] = useState("email");
@@ -45,12 +46,12 @@ function EmailPane() {
       const { data } = await api.get(`/emails?folder=${folder}`);
       setEmails(data || []);
     } catch (err) {
-      console.error("Failed to load emails:", err);
+      logger.error("Failed to load emails:", err);
     }
   }, [folder]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { api.get("/members").then((r) => setMembers(r.data || [])).catch((err) => console.error("Failed to load members:", err)); }, []);
+  useEffect(() => { api.get("/members").then((r) => setMembers(r.data || [])).catch((err) => logger.error("Failed to load members:", err)); }, []);
 
   const filteredMembers = useMemo(() => members.filter((m) => m.id !== user?.id), [members, user?.id]);
 
@@ -154,7 +155,7 @@ function TextsPane() {
   const [thread, setThread] = useState([]);
   const [input, setInput] = useState("");
 
-  useEffect(() => { api.get("/members").then((r) => setMembers(r.data || [])).catch((err) => console.error("Failed to load members:", err)); }, []);
+  useEffect(() => { api.get("/members").then((r) => setMembers(r.data || [])).catch((err) => logger.error("Failed to load members:", err)); }, []);
 
   const filteredMembers = useMemo(() => members.filter((m) => m.id !== user?.id), [members, user?.id]);
 
@@ -224,7 +225,7 @@ function ChatPane() {
 function WalkiePreview({ onVideoCall }) {
   const { user } = useAuth();
   const [members, setMembers] = useState([]);
-  useEffect(() => { api.get("/members").then((r) => setMembers(r.data || [])).catch((err) => console.error("Failed to load members:", err)); }, []);
+  useEffect(() => { api.get("/members").then((r) => setMembers(r.data || [])).catch((err) => logger.error("Failed to load members:", err)); }, []);
 
   const onlineMembers = useMemo(() => members.filter((m) => m.status === "online" && m.id !== user?.id), [members, user?.id]);
 

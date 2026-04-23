@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Trophy, X, Share2, Copy } from "lucide-react";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import logger from "../lib/logger";
 
 const TIERS = [
   { count: 1, name: "Newcomer", color: "#5AC8FA" },
@@ -41,13 +42,13 @@ export default function BadgeUnlock({ unlock, onClose }) {
       const body = `${shareText} ${url}`;
       if (navigator.share) {
         try { await navigator.share({ title: "Round Table", text: shareText, url }); }
-        catch (err) { console.error("Share cancelled:", err); }
+        catch (err) { logger.error("Share cancelled:", err); }
       } else {
         try { await navigator.clipboard.writeText(body); toast.success("Invite copied — paste it anywhere"); }
-        catch (err) { console.error("Clipboard error:", err); toast.success("Invite ready below"); }
+        catch (err) { logger.error("Clipboard error:", err); toast.success("Invite ready below"); }
       }
     } catch (err) {
-      console.error("Share link error:", err);
+      logger.error("Share link error:", err);
       toast.error("Couldn't create share link");
     } finally { setSharing(false); }
   };

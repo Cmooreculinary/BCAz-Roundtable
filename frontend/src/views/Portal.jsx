@@ -5,6 +5,7 @@ import HelpTip from "../components/rt/HelpTip";
 import { Calendar, FileText, Users, Zap, Share2, Bell, Plus, UploadCloud, Mail, MessageSquare, Radio, ChevronRight, Award, Inbox, Send, Star, AlertCircle, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
+import logger from "../lib/logger";
 
 export default function Portal({ tables, notifications, onOpenInvite, onOpenShare, onCreateTable, onNewEvent, onGoto }) {
   const { user } = useAuth();
@@ -218,7 +219,7 @@ function CommsHub() {
       const data = r.data || [];
       setEmails(data);
       setUnreadCounts((prev) => ({ ...prev, email: data.filter((e) => !e.read).length }));
-    }).catch((err) => console.error("Failed to load emails:", err));
+    }).catch((err) => logger.error("Failed to load emails:", err));
   }, []);
 
   const TabBadge = ({ label, count, tabKey }) => (

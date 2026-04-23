@@ -5,6 +5,7 @@ import { api, formatApiErrorDetail } from "../lib/api";
 import { User, Palette, Activity, LogOut, Bell, BellOff, Phone, MessageSquare, Camera } from "lucide-react";
 import { subscribeToPush, unsubscribeFromPush, isPushSupported, getPushPermission } from "../lib/push";
 import AvatarPicker from "../components/AvatarPicker";
+import logger from "../lib/logger";
 
 const COLORS = ["#007AFF", "#34C759", "#FF9500", "#FF3B30", "#AF52DE", "#FF2D55", "#FFCC00", "#5AC8FA"];
 
@@ -168,7 +169,7 @@ export default function Settings() {
             try {
               await updateMe({ avatar_url: url });
               toast.success(url ? "Avatar updated!" : "Switched to initials");
-            } catch (err) { console.error("Avatar update error:", err); toast.error("Could not update avatar"); }
+            } catch (err) { logger.error("Avatar update error:", err); toast.error("Could not update avatar"); }
           }}
           onClose={() => setShowAvatarPicker(false)}
         />

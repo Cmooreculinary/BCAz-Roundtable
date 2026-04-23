@@ -9,6 +9,7 @@ import {
   onCallStateChange, setAudioEnabled, sendTalkState,
 } from "../lib/webrtc";
 import UserAvatar from "../components/UserAvatar";
+import logger from "../lib/logger";
 
 function beep(freq = 880, dur = 0.12) {
   try {
@@ -23,7 +24,7 @@ function beep(freq = 880, dur = 0.12) {
       osc.start(ctx.currentTime + start); osc.stop(ctx.currentTime + start + d);
     };
     play(freq, 0, dur); play(freq * 1.25, dur + 0.05, dur);
-  } catch (err) { console.error("Beep error:", err); }
+  } catch (err) { logger.error("Beep error:", err); }
 }
 
 export default function WalkieView({ onVideoCall }) {
@@ -37,7 +38,7 @@ export default function WalkieView({ onVideoCall }) {
 
   useEffect(() => {
     mountedRef.current = true;
-    api.get("/members").then((r) => setMembers(r.data || [])).catch((err) => console.error("Failed to load members:", err));
+    api.get("/members").then((r) => setMembers(r.data || [])).catch((err) => logger.error("Failed to load members:", err));
     return () => { mountedRef.current = false; };
   }, []);
 

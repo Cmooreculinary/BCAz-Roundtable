@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { api, formatApiErrorDetail } from "../lib/api";
+import logger from "../lib/logger";
 
 const AuthContext = createContext(null);
 
@@ -23,7 +24,7 @@ export const AuthProvider = ({ children }) => {
     fetchMe();
   }, [fetchMe]);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     setError("");
     try {
       const { data } = await api.post("/auth/login", { email, password });
@@ -34,9 +35,9 @@ export const AuthProvider = ({ children }) => {
       setError(msg);
       throw new Error(msg);
     }
-  };
+  }, []);
 
-  const register = async (name, email, password) => {
+  const register = useCallback(async (name, email, password) => {
     setError("");
     try {
       const { data } = await api.post("/auth/register", { name, email, password });
@@ -47,25 +48,29 @@ export const AuthProvider = ({ children }) => {
       setError(msg);
       throw new Error(msg);
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout");
     } catch (err) {
-      console.error("Logout API error (non-blocking):", err);
+      logger.error("Logout API error (non-blocking):", err);
     }
     setUser(false);
-  };
+  }, []);
 
-  const updateMe = async (patch) => {
+  const updateMe = useCallback(async (patch) => {
     const { data } = await api.put("/me", patch);
     setUser(data);
     return data;
-  };
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    user, setUser, login, register, logout, updateMe, error, refresh: fetchMe
+  }), [user, error, fetchMe, login, register, logout, updateMe]);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, login, register, logout, updateMe, error, refresh: fetchMe }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

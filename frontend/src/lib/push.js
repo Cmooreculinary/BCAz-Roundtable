@@ -3,6 +3,7 @@
  * Subscribes the browser to web push using the VAPID public key from the backend.
  */
 import { api } from "./api";
+import logger from "./logger";
 
 let subscribed = false;
 
@@ -20,7 +21,7 @@ function urlBase64ToUint8Array(base64String) {
 export async function subscribeToPush() {
   if (subscribed) return true;
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    console.warn("Push notifications not supported");
+    logger.warn("Push notifications not supported");
     return false;
   }
 
@@ -54,7 +55,7 @@ export async function subscribeToPush() {
     subscribed = true;
     return true;
   } catch (err) {
-    console.error("Push subscription failed:", err);
+    logger.error("Push subscription failed:", err);
     return false;
   }
 }
@@ -74,7 +75,7 @@ export async function unsubscribeFromPush() {
     subscribed = false;
     return true;
   } catch (err) {
-    console.error("Push unsubscribe failed:", err);
+    logger.error("Push unsubscribe failed:", err);
     return false;
   }
 }

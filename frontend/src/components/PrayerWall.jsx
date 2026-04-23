@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useRTEvent } from "../lib/realtime";
 import EmptyState from "./rt/EmptyState";
 import { formatDistanceToNow } from "date-fns";
+import logger from "../lib/logger";
 
 const REACTIONS = [
   { type: "praying", label: "Praying", icon: <HandHeart size={14} />, color: "#AF52DE" },
@@ -23,7 +24,7 @@ export default function PrayerWall({ tableId, onShare }) {
     try {
       const { data } = await api.get(`/tables/${tableId}/prayers`);
       setItems(data || []);
-    } catch (err) { console.error("Failed to load prayers:", err); }
+    } catch (err) { logger.error("Failed to load prayers:", err); }
     finally { setLoading(false); }
   }, [tableId]);
 
@@ -48,7 +49,7 @@ export default function PrayerWall({ tableId, onShare }) {
       if (data.action === "added" && type === "praying") {
         toast.success("🙏 You're lifting them up");
       }
-    } catch (err) { console.error("Reaction error:", err); toast.error("Couldn't save reaction"); }
+    } catch (err) { logger.error("Reaction error:", err); toast.error("Couldn't save reaction"); }
   };
 
   const timeAgo = (iso) => { try { return formatDistanceToNow(new Date(iso), { addSuffix: true }); } catch (err) { return ""; } };

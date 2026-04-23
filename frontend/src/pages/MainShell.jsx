@@ -28,6 +28,7 @@ import BadgeUnlock from "../components/BadgeUnlock";
 import { api } from "../lib/api";
 import { useWebSocket, useRTEvent } from "../lib/realtime";
 import { subscribeToPush, isPushSupported, getPushPermission } from "../lib/push";
+import logger from "../lib/logger";
 
 const BADGE_THRESHOLDS = [1, 3, 10, 25];
 
@@ -66,14 +67,14 @@ export default function MainShell() {
       const { data } = await api.get("/tables");
       setTables(data);
       if (data.length && !activeTableId) setActiveTableId(data[0].id);
-    } catch (err) { console.error("Failed to load tables:", err); }
+    } catch (err) { logger.error("Failed to load tables:", err); }
   }, [activeTableId]);
 
   const loadNotifications = useCallback(async () => {
     try {
       const { data } = await api.get("/notifications");
       setNotifications(data);
-    } catch (err) { console.error("Failed to load notifications:", err); }
+    } catch (err) { logger.error("Failed to load notifications:", err); }
   }, []);
 
   useEffect(() => {

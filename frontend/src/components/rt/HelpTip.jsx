@@ -3,18 +3,17 @@ import { X } from "lucide-react";
 
 /**
  * Contextual help tooltip — shows once per section, auto-dismisses after 8s.
- * Uses localStorage for UI preference flags only (non-sensitive dismiss state).
- * Keys: "rt-help-{section}" = "1" when dismissed.
+ * Uses sessionStorage for non-sensitive UI dismiss state only.
+ * No PII or auth data is stored. Keys: "rt-help-{section}" = "1" when dismissed.
  */
 export default function HelpTip({ section, text, position = "top-right" }) {
   const key = `rt-help-${section}`;
-  const [show, setShow] = useState(() => !localStorage.getItem(key));
+  const [show, setShow] = useState(() => !sessionStorage.getItem(key));
 
-  // Auto-dismiss after 8s so it doesn't linger and block UI
   useEffect(() => {
     if (!show) return;
     const t = setTimeout(() => {
-      localStorage.setItem(key, "1");
+      sessionStorage.setItem(key, "1");
       setShow(false);
     }, 8000);
     return () => clearTimeout(t);
@@ -23,20 +22,17 @@ export default function HelpTip({ section, text, position = "top-right" }) {
   if (!show) return null;
 
   const dismiss = () => {
-    localStorage.setItem(key, "1");
+    sessionStorage.setItem(key, "1");
     setShow(false);
   };
 
-  // Position below the title bar (52px) so it never overlaps title-bar controls
-  const positionStyle =
-    position === "top-right"
-      ? { top: 68, right: 16 }
-      : position === "bottom-right"
-        ? { bottom: 120, right: 16 }
-        : { top: 68, left: 260 };
+  const posStyle =
+    position === "top-right" ? { top: 68, right: 16 }
+    : position === "bottom-right" ? { bottom: 120, right: 16 }
+    : { top: 68, left: 260 };
 
   return (
-    <div className="help-tip" style={positionStyle} data-testid={`help-${section}`}>
+    <div className="help-tip" style={posStyle} data-testid={`help-${section}`}>
       <div style={{ display: "flex", alignItems: "start", gap: 10 }}>
         <div style={{ flex: 1, fontSize: 12, lineHeight: 1.5 }}>{text}</div>
         <button onClick={dismiss} style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", padding: 2 }}>
