@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import HelpTip from "../components/rt/HelpTip";
+import { toast } from "sonner";
 
 export default function CalendarView({ onNew, tables }) {
   const [events, setEvents] = useState([]);
@@ -11,9 +12,14 @@ export default function CalendarView({ onNew, tables }) {
   });
   const [filter, setFilter] = useState("all"); // all | tableId
 
-  useEffect(() => {
-    api.get("/events").then((r) => setEvents(r.data || []));
-  }, []);
+  const load = () => api.get("/events").then((r) => setEvents(r.data || []));
+  useEffect(() => { load(); }, []);
+
+  const deleteEvent = async (eventId) => {
+    await api.delete(`/events/${eventId}`);
+    toast.success("Event deleted");
+    load();
+  };
 
   const daysInMonth = new Date(cursor.year, cursor.month + 1, 0).getDate();
   const firstDay = new Date(cursor.year, cursor.month, 1).getDay();
@@ -73,8 +79,9 @@ export default function CalendarView({ onNew, tables }) {
             <div key={c.date} className={`cal-cell ${c.date === today ? "today" : ""}`} data-testid={`cal-cell-${c.date}`}>
               <div style={{ fontSize: 11, fontWeight: c.date === today ? 700 : 500, color: c.date === today ? "var(--mac-blue)" : "var(--text-primary)" }}>{c.d}</div>
               {(eventsByDate[c.date] || []).slice(0, 3).map((e) => (
-                <div key={e.id} className="cal-event" style={{ background: e.color || "#007AFF" }} title={`${e.title} · ${e.time}`}>
-                  {e.title}
+                <div key={e.id} className="cal-event" style={{ background: e.color || "#007AFF", display: "flex", alignItems: "center", gap: 2 }} title={`${e.title} · ${e.time}`}>
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{e.title}</span>
+                  <span onClick={(ev) => { ev.stopPropagation(); deleteEvent(e.id); }} style={{ cursor: "pointer", opacity: 0.7, lineHeight: 1 }} data-testid={`cal-event-del-${e.id}`}>&times;</span>
                 </div>
               ))}
               {(eventsByDate[c.date] || []).length > 3 && (

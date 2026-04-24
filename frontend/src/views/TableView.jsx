@@ -4,7 +4,7 @@ import { api, formatApiErrorDetail } from "../lib/api";
 import RoundTableViz from "../components/rt/RoundTableViz";
 import EmptyState from "../components/rt/EmptyState";
 import HelpTip from "../components/rt/HelpTip";
-import { Share2, UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare, HeartHandshake, Armchair, Eye } from "lucide-react";
+import { Share2, UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare, HeartHandshake, Armchair, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useRTEvent } from "../lib/realtime";
@@ -12,11 +12,13 @@ import SmartSuggestions from "../components/SmartSuggestions";
 import PrayerWall from "../components/PrayerWall";
 import FileViewerModal from "../components/modals/FileViewerModal";
 import UserAvatar from "../components/UserAvatar";
+import { useNavigate } from "react-router-dom";
 import logger from "../lib/logger";
 
 export default function TableView({ onShare, onInvite, onVideoCall }) {
   const { id } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [table, setTable] = useState(null);
   const [msgText, setMsgText] = useState("");
   const [messages, setMessages] = useState([]);
@@ -24,6 +26,27 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
   const [tab, setTab] = useState("table");
   const [viewingItem, setViewingItem] = useState(null);
   const [incomingPresentation, setIncomingPresentation] = useState(null);
+
+  const deleteTable = async () => {
+    if (!window.confirm(`Delete "${table?.name}"? All shared items and events will be moved to trash.`)) return;
+    try {
+      await api.delete(`/tables/${id}`);
+      toast.success("Table deleted");
+      navigate("/");
+    } catch (err) {
+      toast.error("Could not delete table");
+    }
+  };
+
+  const deleteItem = async (itemId) => {
+    try {
+      await api.delete(`/tables/${id}/items/${itemId}`);
+      toast.success("Item removed");
+      load();
+    } catch (err) {
+      toast.error("Could not delete item");
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -117,6 +140,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
           <button className="btn btn-secondary" onClick={() => onInvite?.(table)} data-testid="table-invite-btn"><Users size={14} /> Invite</button>
           <button className="btn btn-secondary" onClick={() => onVideoCall?.(table.members?.find((m) => m.id !== user.id))} data-testid="table-video-btn"><Video size={14} /> Video Call</button>
           <button className="btn btn-primary" onClick={() => onShare?.(table)} data-testid="table-share-btn"><UploadCloud size={14} /> Share</button>
+          <button className="btn btn-ghost" onClick={deleteTable} data-testid="table-delete-btn" title="Delete table" style={{ color: "var(--mac-red)" }}><Trash2 size={14} /></button>
         </div>
       </div>
 
@@ -170,8 +194,9 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</div>
-                  <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>shared by {it.shared_by_name}</div>
+                  <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>{it.type} · {it.shared_by_name}</div>
                 </div>
+                <button className="btn btn-ghost" onClick={(e) => { e.stopPropagation(); deleteItem(it.id); }} data-testid={`item-delete-${it.id}`} style={{ color: "var(--mac-red)", padding: 4 }}><Trash2 size={12} /></button>
               </div>
             ))}
           </div>
@@ -194,6 +219,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
                   </div>
                   <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{e.date} · {e.time}</div>
                 </div>
+                <button className="btn btn-ghost" onClick={async () => { await api.delete(`/events/${e.id}`); toast.success("Event deleted"); load(); }} data-testid={`event-delete-${e.id}`} style={{ color: "var(--mac-red)", padding: 4 }}><Trash2 size={12} /></button>
               </div>
             ))}
           </div>

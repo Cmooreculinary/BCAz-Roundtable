@@ -92,9 +92,12 @@ function EmailPane() {
           <button className="btn btn-primary" onClick={() => setComposing(true)} style={{ width: "100%", fontSize: 11 }} data-testid="email-compose-btn"><Mail size={13} /> Compose</button>
         </div>
         {emails.map((e) => (
-          <div key={e.id} onClick={() => open(e)} data-testid={`email-item-${e.id}`} style={{ padding: "10px 12px", cursor: "pointer", borderBottom: "1px solid var(--border-light)", background: selected?.id === e.id ? "var(--bg-tertiary)" : "transparent", opacity: e.read ? 0.7 : 1 }}>
-            <div style={{ fontSize: 12, fontWeight: e.read ? 400 : 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.subject}</div>
-            <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>{e.from_name}</div>
+          <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 12px", cursor: "pointer", borderBottom: "1px solid var(--border-light)", background: selected?.id === e.id ? "var(--bg-tertiary)" : "transparent", opacity: e.read ? 0.7 : 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }} onClick={() => open(e)} data-testid={`email-item-${e.id}`}>
+              <div style={{ fontSize: 12, fontWeight: e.read ? 400 : 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.subject}</div>
+              <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>{e.from_name}</div>
+            </div>
+            <button className="btn btn-ghost" onClick={async () => { await api.delete(`/emails/${e.id}`); toast.success("Email trashed"); load(); }} data-testid={`email-del-${e.id}`} style={{ color: "var(--mac-red)", padding: 2, flexShrink: 0 }}><Trash2 size={11} /></button>
           </div>
         ))}
       </div>
@@ -165,6 +168,8 @@ function TextsPane() {
     setThread(data || []);
   };
 
+  const isMineCheck = (m) => m.from_user === user?.id;
+
   const send = async () => {
     if (!input.trim() || !target) return;
     await api.post("/texts", { to_user: target.id, text: input.trim() });
@@ -195,11 +200,14 @@ function TextsPane() {
             <div style={{ flex: 1, padding: 14, display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
               {thread.length === 0 && <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>No messages yet.</div>}
               {thread.map((m) => (
-                <div key={m.id} className={`bubble ${m.from_user === user?.id ? "me" : "them"}`}>
-                  {m.text}
-                  {m.from_user === user?.id && (
-                    <div style={{ fontSize: 9, opacity: 0.5, textAlign: "right", marginTop: 2 }}>{m.read ? "Read" : "Sent"}</div>
-                  )}
+                <div key={m.id} className="msg-row" style={{ display: "flex", alignItems: isMineCheck(m) ? "flex-end" : "flex-start", flexDirection: "column" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexDirection: isMineCheck(m) ? "row" : "row-reverse" }}>
+                    <button className="msg-delete-btn" onClick={async () => { await api.delete(`/messages/${m.id}`); toast.success("Deleted"); loadThread(target); }} style={{ opacity: 0, width: 20, height: 20, borderRadius: "50%", border: "none", background: "var(--bg-tertiary)", color: "var(--mac-red)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "opacity 0.15s", flexShrink: 0 }} data-testid={`text-del-${m.id}`}><Trash2 size={9} /></button>
+                    <div className={`bubble ${isMineCheck(m) ? "me" : "them"}`}>
+                      {m.text}
+                      {isMineCheck(m) && <div style={{ fontSize: 9, opacity: 0.5, textAlign: "right", marginTop: 2 }}>{m.read ? "Read" : "Sent"}</div>}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

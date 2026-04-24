@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { api } from "../lib/api";
-import { HeartHandshake, Sparkles, Heart, Hand, HandHeart } from "lucide-react";
+import { HeartHandshake, Sparkles, Heart, Hand, HandHeart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useRTEvent } from "../lib/realtime";
@@ -98,6 +98,7 @@ export default function PrayerWall({ tableId, onShare }) {
                 <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{it.name}</div>
                 {it.url && <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{it.url}</div>}
               </div>
+              <button className="btn btn-ghost" onClick={async () => { await api.delete(`/tables/${tableId}/items/${it.id}`); toast.success("Removed"); load(); }} data-testid={`prayer-delete-${it.id}`} style={{ color: "var(--mac-red)", padding: 4, flexShrink: 0 }}><Trash2 size={13} /></button>
             </div>
             <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
               {REACTIONS.map((r) => {
