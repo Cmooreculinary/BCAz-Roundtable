@@ -2,12 +2,13 @@ import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import EmptyState from "../components/rt/EmptyState";
 import HelpTip from "../components/rt/HelpTip";
-import { Calendar, FileText, Users, Zap, Share2, Bell, Plus, UploadCloud, Mail, MessageSquare, Radio, ChevronRight, Award, Inbox, Send, Star, AlertCircle, X } from "lucide-react";
+import { Calendar, FileText, Users, Zap, Share2, Bell, Plus, UploadCloud, Mail, MessageSquare, Radio, ChevronRight, Award, Inbox, Send, Star, AlertCircle, X, Trash2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 import logger from "../lib/logger";
 
-export default function Portal({ tables, notifications, onOpenInvite, onOpenShare, onCreateTable, onNewEvent, onGoto }) {
+export default function Portal({ tables, notifications, loadTables, loadNotifications, onOpenInvite, onOpenShare, onCreateTable, onNewEvent, onGoto }) {
   const { user } = useAuth();
   const [events, setEvents] = useState([]);
   const [referrals, setReferrals] = useState({ invited: 0, joined: 0, badge: "No badge yet" });
@@ -34,7 +35,6 @@ export default function Portal({ tables, notifications, onOpenInvite, onOpenShar
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-      <HelpTip section="portal" text="This is your home base. All your comms, tables, and quick actions live here." />
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>
           Good {greeting()}, {user?.name?.split(" ")[0]}
@@ -47,11 +47,44 @@ export default function Portal({ tables, notifications, onOpenInvite, onOpenShar
       {/* Setup reminder banner */}
       <SetupReminder user={user} onGoto={onGoto} dismissed={dismissedReminder} onDismiss={() => setDismissedReminder(true)} />
 
-      {/* Communications Hub */}
-      <CommsHub />
+      {/* MY TABLES — prominent, full width */}
+      <div className="card" style={{ padding: 14, marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+            <Users size={16} /> My Tables
+          </div>
+          <button className="btn btn-primary" onClick={onCreateTable} data-testid="portal-new-table" style={{ padding: "6px 14px", fontSize: 12 }}><Plus size={13} /> New Table</button>
+        </div>
+        {tables.length === 0 ? (
+          <EmptyState icon={<Users size={24} />} title="No tables yet" subtitle="Create your first one." action={<button className="btn btn-primary" onClick={onCreateTable} data-testid="portal-create-table-empty">Create Table</button>} testId="portal-tables-empty" />
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
+            {tables.map((t) => (
+              <div key={t.id} onClick={() => onGoto(`/table/${t.id}`)} data-testid={`portal-table-${t.id}`} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+                background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", cursor: "pointer",
+                border: "1px solid var(--border-light)",
+                transition: "transform 0.2s var(--spring), box-shadow 0.2s",
+              }}>
+                <div style={{ width: 42, height: 42, borderRadius: "50%", background: t.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, flexShrink: 0 }}>
+                  {(t.name[0] || "?").toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                    {t.active && <span className="live-badge-dot" />}
+                    {t.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{t.member_count} member{t.member_count !== 1 ? "s" : ""} · {t.active ? `${t.active_count} online` : "dormant"}</div>
+                </div>
+                <ChevronRight size={16} color="var(--text-tertiary)" />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* Widgets grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginTop: 18 }}>
+      {/* Widgets grid — schedule, recent, actions, notifications */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginBottom: 14 }}>
         {/* Today's Schedule */}
         <Widget title="Today's Schedule" icon={<Calendar size={14} />} action={<button className="btn btn-ghost" onClick={onNewEvent} data-testid="widget-new-event" style={{ padding: 3 }}><Plus size={14} /></button>}>
           {todayEvents.length === 0 ? (
@@ -63,6 +96,7 @@ export default function Portal({ tables, notifications, onOpenInvite, onOpenShar
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{e.title}</div>
                 <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{e.time}</div>
               </div>
+              <button className="btn btn-ghost" onClick={async () => { await api.delete(`/events/${e.id}`); toast.success("Event trashed"); loadTables(); }} data-testid={`portal-event-del-${e.id}`} style={{ color: "var(--mac-red)", padding: 3 }}><Trash2 size={12} /></button>
             </div>
           ))}
         </Widget>
@@ -80,33 +114,9 @@ export default function Portal({ tables, notifications, onOpenInvite, onOpenShar
                 <div style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</div>
                 <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>{it.tableName} · {timeAgo(it.created_at)}</div>
               </div>
-            </div>
-          ))}
-        </Widget>
-
-        {/* My Tables */}
-        <Widget title="My Tables" icon={<Users size={14} />} action={<button className="btn btn-ghost" onClick={onCreateTable} data-testid="widget-create-table" style={{ padding: 3 }}><Plus size={14} /></button>}>
-          {tables.length === 0 ? (
-            <EmptyState
-              icon={<Users size={24} />}
-              title="No tables yet"
-              subtitle="Create your first one."
-              action={<button className="btn btn-primary" onClick={onCreateTable} data-testid="portal-create-table-empty">Create Table</button>}
-              testId="portal-tables-empty"
-            />
-          ) : tables.slice(0, 4).map((t) => (
-            <div key={t.id} onClick={() => onGoto(`/table/${t.id}`)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-light)", cursor: "pointer" }} data-testid={`portal-table-${t.id}`}>
-              <div style={{ width: 30, height: 30, borderRadius: "50%", background: t.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>
-                {(t.name[0] || "?").toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
-                  {t.active && <span className="live-badge-dot" />}
-                  {t.name}
-                </div>
-                <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>{t.member_count} member{t.member_count !== 1 ? "s" : ""} · {t.active ? `${t.active_count} on` : "dormant"}</div>
-              </div>
-              <ChevronRight size={14} color="var(--text-tertiary)" />
+              {it.id && it.table_id && (
+                <button className="btn btn-ghost" onClick={async () => { await api.delete(`/tables/${it.table_id}/items/${it.id}`); toast.success("Item trashed"); loadTables(); }} data-testid={`portal-item-del-${it.id}`} style={{ color: "var(--mac-red)", padding: 3 }}><Trash2 size={12} /></button>
+              )}
             </div>
           ))}
         </Widget>
@@ -121,6 +131,27 @@ export default function Portal({ tables, notifications, onOpenInvite, onOpenShar
             <QuickAct onClick={() => onGoto("/messages")} icon={<MessageSquare size={14} />} label="Messages" testId="qa-msg" />
             <QuickAct onClick={() => onGoto("/walkie")} icon={<Radio size={14} />} label="Walkie" testId="qa-walkie" />
           </div>
+        </Widget>
+
+        {/* Notifications */}
+        <Widget title="Notifications" icon={<Bell size={14} />} action={
+          <div style={{ display: "flex", gap: 4 }}>
+            {recentNotifications.length > 0 && <button className="btn btn-ghost" onClick={async () => { await api.delete("/notifications/clear-all"); toast.success("Notifications cleared"); loadNotifications(); }} data-testid="portal-notif-clear" style={{ padding: 3, fontSize: 10, color: "var(--mac-red)" }}><Trash2 size={12} /></button>}
+            <button className="btn btn-ghost" onClick={() => onGoto("/notifications")} data-testid="widget-all-notifs" style={{ padding: 3, fontSize: 10 }}>All</button>
+          </div>
+        }>
+          {recentNotifications.length === 0 ? (
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", padding: "8px 0" }}>No notifications. When things happen, you'll see them here.</div>
+          ) : recentNotifications.map((n) => (
+            <div key={n.id} style={{ display: "flex", alignItems: "start", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-light)" }}>
+              <div className="avatar" style={{ width: 24, height: 24, background: n.from_color || "#8E8E93", fontSize: 9, marginTop: 1 }}>{n.from_initials || "?"}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }}>{n.message}</div>
+                <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>{timeAgo(n.created_at)}</div>
+              </div>
+              {!n.read && <span style={{ width: 8, height: 8, borderRadius: 8, background: "var(--mac-blue)", flexShrink: 0, marginTop: 6 }} />}
+            </div>
+          ))}
         </Widget>
 
         {/* Invites & Referrals */}
@@ -147,23 +178,10 @@ export default function Portal({ tables, notifications, onOpenInvite, onOpenShar
             </div>
           )}
         </Widget>
-
-        {/* Notifications */}
-        <Widget title="Notifications" icon={<Bell size={14} />} action={<button className="btn btn-ghost" onClick={() => onGoto("/notifications")} data-testid="widget-all-notifs" style={{ padding: 3, fontSize: 10 }}>All</button>}>
-          {recentNotifications.length === 0 ? (
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", padding: "8px 0" }}>No notifications. When things happen, you'll see them here.</div>
-          ) : recentNotifications.map((n) => (
-            <div key={n.id} style={{ display: "flex", alignItems: "start", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-light)" }}>
-              <div className="avatar" style={{ width: 24, height: 24, background: n.from_color || "#8E8E93", fontSize: 9, marginTop: 1 }}>{n.from_initials || "?"}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }}>{n.message}</div>
-                <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>{timeAgo(n.created_at)}</div>
-              </div>
-              {!n.read && <span style={{ width: 8, height: 8, borderRadius: 8, background: "var(--mac-blue)", flexShrink: 0, marginTop: 6 }} />}
-            </div>
-          ))}
-        </Widget>
       </div>
+
+      {/* Communications Hub — moved below tables */}
+      <CommsHub />
     </div>
   );
 }
