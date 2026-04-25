@@ -10,7 +10,7 @@ import time
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://community-hub-830.preview.emergentagent.com"
+    BASE_URL = "https://team-table.preview.emergentagent.com"
 
 ADMIN_EMAIL = ADMIN_EMAIL
 ADMIN_PASSWORD = ADMIN_PASSWORD

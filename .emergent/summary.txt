@@ -1,0 +1,128 @@
+<analysis>**original_problem_statement:** 
+Round Table is a macOS-styled unified collaboration platform that replaces fragmented tools (Slack, WhatsApp) with a visual table metaphor. Built for families, faith communities, project teams, and neighborhoods. 
+PRODUCT REQUIREMENTS: 
+- Strict per-table data isolation.
+- Pixel-perfect macOS-styled UI (glass-morphism, traffic lights, specific fonts/spacing, spring easing).
+- Real WebRTC walkie-talkie & video calls, Twilio SMS integrations, Push notifications, and real-time interaction.
+- A fully polished, cinematic Gather Experience visual prototype (Room Builder, Avatar Seating, Live Table View, Demo Simulation, Explore Grid, Monetization Preview) designed for investor and partner demos.
+
+**User's preferred language**: English
+*(Note to next agent: Respond in English only. Maintain a supportive tone, referencing brother or Chef. The user is mindful of their credit balance, so avoid unnecessary/heavy agent runs unless explicitly required.)*
+
+**what currently exists?** 
+A deeply polished, fully functional web app featuring real WebRTC peer-to-peer/group calls, Twilio SMS bridge, Web Push notifications, a File Viewer with WebSocket Co-Viewing sync, 6-step onboarding, and a soft-delete system. The UI has an extensive Apple-native CSS polish. The newly added Gather Experience demo (visual prototype for investors) has just been wired into the Portal with an auto-starting simulation and a Share Demo URL personalization feature.
+
+**Last working item**: 
+    - Last item agent was working: Investigating a user-reported snag or jam on the preview link immediately after deploying the Gather Experience sharing feature. The agent verified all server processes (supervisor, webpack, FastAPI) and HTTP routes were returning 200 OK. The user then opted to fork the session because they have a large prompt to paste.
+    - Status: USER VERIFICATION PENDING
+    - Agent Testing Done: Y (Smoke-test screenshots and cURL tests passed).
+    - Which testing method agent to use? Screenshot tool / manual confirmation with the user about their large prompt/issue.
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**: 
+  - Issue 1: User reported being jammed up on the new preview. looks like a snag
+     - Attempted fixes: Agent verified backend                          RUNNING   pid 46, uptime 0:00:09
+code-server                      STOPPED   Not started
+frontend                         RUNNING   pid 48, uptime 0:00:09
+mongodb                          RUNNING   pid 49, uptime 0:00:09
+nginx-code-proxy                 RUNNING   pid 45, uptime 0:00:09, webpack logs, and HTTP 200 responses for frontend, backend, and . All services were running and healthy on the server side.
+     - Next debug checklist: Read the user's incoming large prompt. If it doesn't mention the snag, ask the user to describe the issue (blank screen? broken layout?) or advise a hard-refresh for stale browser cache.
+     - Why fix this issue and what will be achieved with the fix? Ensures the Gather Experience is viewable and unblocks the user's workflow.
+     - Status: USER VERIFICATION PENDING
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? Frontend
+     - Blocked on other issue: None
+
+**In progress Task List**: 
+None active. The agent completed the specific UI wiring requested and is awaiting the user's new large prompt.
+
+**Upcoming and Future Tasks**
+    - Task 1 (P1): **Address the User's Large Prompt**. The user specifically forked to provide a large set of instructions. This is the immediate priority.
+    - Task 2 (P2): **Resend Email Bridge Integration**. The UI currently marks Email integration as Coming Soon. Wait for the user to provide the Resend API key before implementing.
+    - Task 3 (P3): **Populate Documentation**. Fill out  and  with final architecture decisions and product logic (files were created but remain empty—deferred to save user credits).
+    - Task 4 (Backlog): **Demo Visit Tracking**. Create an endpoint to track when a personalized demo link () is opened and send a notification to the host (Suggested enhancement).
+
+**Completed work in this session**
+- Wired  route in  and  (DONE)
+- Added Gather Experience launch banner/button on the  (DONE)
+- Configured  to auto-start the guided demo (DONE)
+- Fixed  React hook dependency loop in  using  (DONE)
+- Built and shipped Share Demo Link feature in  ( URL parsing, Built for X badge, ShareModal with clipboard copy) (DONE)
+
+**Earlier issues found/mentioned but not fixed**
+None.
+
+**Known issue recurrence from previous fork**
+  - Issue recurrence in previous fork: React Hook Missing Dependencies & High Component Complexity.
+  - Recurrence count: 3 
+  - Status: RESOLVED (Fixed  dependency this session).
+  Note: Be extremely meticulous with , , and  dependency arrays. Extract complex logic into smaller sub-components or custom hooks rather than building 300+ line components.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+Frontend: React, Context API, CSS Glassmorphism/macOS styling/Spring animations, WebRTC API (), Web Push API.
+Backend: FastAPI, native WebSockets (real-time chat, presentation sync, WebRTC signaling), MongoDB (Soft-delete architectural pattern).
+Code Quality: Custom frontend logger () used instead of . Strict ESLint hooks compliance.
+
+**key DB schema**
+  - : {id, email, password_hash, phone, auto_sms, ...}
+  - All content tables (, , , , , , , ) implement soft-deletion fields (, ). 
+
+**changes in tech stack**
+- None in this specific session block. (Twilio SDK and PyWebPush added previously).
+
+**All files of reference** 
+  -  (Updated with Share Demo modal, URL params, and auto-start logic)
+  -  (Updated with Gather launch banner)
+  -  (Updated with  route)
+  -  (Updated with completion history)
+
+**Areas that need refactoring**: 
+ is getting large with the addition of Share Demo modals and the existing simulation logic. Monitor its size; if the user's incoming large prompt adds more complexity here, consider breaking sub-components (like  or ) out to avoid hook dependency issues and linter warnings.
+
+**key api endpoints**
+  -  (WebRTC signaling, chat, co-viewing presentation sync)
+  - ,  (Trigger Twilio SMS auto-routing if offline)
+  -  (Supports  for transactional invites)
+
+**Critical Info for New Agent** 
+- **Apple-Native Feel:** The user explicitly requests an Apple-Native, Premium, cinematic look. Utilize the glass panels, spring transitions, and warm light effects already set up in .
+- **Gather Experience Scope:** This is a *visual prototype* intended for investor demos. Real-time voice, ordering, and complex AI are simulated/mocked gracefully in this view.
+- **Console Logs:** Do not use  or  in the frontend; import and use .
+- **Budget constraints:** The user mentioned they only have ~126 credits left. Do not run the heavy backend/frontend testing subagents unless absolutely necessary for massive architectural changes. Rely on fast, parallel self-testing (cURL + single screenshot).
+
+**documents and test reports created in this job** 
+  -  (Updated)
+
+**Last 10 User Messages and any pending HUMAN messages** 
+ - *User:* 126 that all i have left, can we do it or should we leave something for later -> *Agent:* Suggested doing high-impact, low-cost wiring for the demo and skipping heavy testing. (COMPLETED)
+ - *User:* portal button auto start -> *Agent:* Wired demo, added portal button, fixed hook dep, auto-started demo. (COMPLETED)
+ - *User:* go for it (to adding the Share Demo feature) -> *Agent:* Built ShareModal and URL personalization. (COMPLETED)
+ - *User:* we got jammed up on the new preview. looks like a snag -> *Agent:* Verified servers are healthy, suspected cache, asked for clarification. (PENDING VERIFICATION)
+ - *User:* i have a large prompt.....should we fork for better effeiciency? -> *Agent:* Agreed to fork. (PENDING LARGE PROMPT FROM USER).
+
+**Project Health Check:**
+Broken: None known, but User reported a visual snag on preview right before forking.
+Mocked: Coming Soon Email Bridge, Gather Experience demo features (simulated for investors).
+
+**3rd Party Integrations** 
+ - DiceBear API (Avatars) — No Key required.
+ - Twilio (SMS) — requires User API Key (Provided and active).
+ - Emergent Object Storage — configured internally.
+ - Claude Sonnet 4.5 (AI Suggestions) — uses Emergent LLM Key.
+ - Resend (Email) — requires User API Key (Pending implementation).
+
+**Testing status**
+  - Testing agent used after significant changes: NO (Intentionally skipped this session to save user's limited credit budget).
+  - Troubleshoot agent used after agent stuck in loop: NO.
+  - Test files created: None this session.
+  - Known regressions: User reported a potential frontend snag on the preview URL just before forking, but server and compilation logs were entirely clean.
+
+**Credentials to test flow:**
+Available in 
+Default Admin:  / 
+
+**What agent forgot to execute**
+Nothing was forgotten, but  and  documentation updates remain deferred intentionally to save the user's compute budget.</analysis>
