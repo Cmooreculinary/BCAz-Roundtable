@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { api, formatApiErrorDetail } from "../lib/api";
-import { User, Palette, Activity, LogOut, Bell, BellOff, Phone, MessageSquare, Camera } from "lucide-react";
+import { User, Palette, Activity, LogOut, Bell, BellOff, Phone, MessageSquare, Camera, Sparkles, Lock } from "lucide-react";
 import { subscribeToPush, unsubscribeFromPush, isPushSupported, getPushPermission } from "../lib/push";
 import AvatarPicker from "../components/AvatarPicker";
+import { AVATAR_TIERS } from "../lib/scenes";
 import logger from "../lib/logger";
 
 const COLORS = ["#007AFF", "#34C759", "#FF9500", "#FF3B30", "#AF52DE", "#FF2D55", "#FFCC00", "#5AC8FA"];
@@ -154,6 +155,45 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      <div className="card" style={{ padding: 16, marginTop: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+          <Sparkles size={14} color="var(--mac-purple)" /> Avatar Tier
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 10 }}>
+          Your seat at every Round Table reflects your avatar tier.
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {AVATAR_TIERS.map((t) => {
+            const isActive = (user?.avatar_tier || "stylized") === t.id;
+            return (
+              <div
+                key={t.id}
+                data-testid={`avatar-tier-${t.id}`}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "8px 10px", borderRadius: 10,
+                  background: isActive ? "rgba(0,122,255,0.10)" : "var(--bg-secondary)",
+                  border: `1px solid ${isActive ? "var(--mac-blue)" : "var(--border-light)"}`,
+                  opacity: t.available ? 1 : 0.6,
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                    {!t.available && <Lock size={11} />}
+                    {t.label}
+                    {isActive && <span className="badge green" style={{ fontSize: 9, padding: "1px 6px" }}>Active</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{t.hint}</div>
+                </div>
+                {!t.available && (
+                  <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontWeight: 600 }}>Coming soon</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="card" style={{ padding: 16, marginTop: 14 }}>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Keyboard Shortcuts</div>

@@ -1,61 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Settings2, Users, Play, Layers, CreditCard, FileText, ChevronRight, RotateCcw, UserPlus, Save, X, MessageSquare, Mic, File, Calendar, UtensilsCrossed, StickyNote, Sparkles, Link2, ArrowLeft, Share2, Check, Copy } from "lucide-react";
 import { toast } from "sonner";
+import { ROOMS, TABLES, TABLETOPS, FOODS, AMBIANCES, MUSICS } from "../lib/scenes";
 
 /* ═══════════════════════════════════════════
    GATHER EXPERIENCE — Room Builder + Demo
+   Iteration 18 — scene catalog now imported from /app/frontend/src/lib/scenes.js
+   so the standalone /gather demo and the real /table/:id pages stay in lockstep.
    ═══════════════════════════════════════════ */
 
-// ── Data ────────────────────────────────────
-const ROOMS = [
-  { id: "skyline", name: "Skyline Executive Room", gradient: "linear-gradient(135deg, #0a1628 0%, #1a3a5c 40%, #2d5a7b 100%)", accent: "#5AC8FA" },
-  { id: "dining", name: "Warm Private Dining", gradient: "linear-gradient(135deg, #3d1c02 0%, #6b3a1f 50%, #8b5e3c 100%)", accent: "#FF9500" },
-  { id: "studio", name: "Creative Studio", gradient: "linear-gradient(135deg, #1a1a2e 0%, #2d2d44 50%, #4a4a6a 100%)", accent: "#AF52DE" },
-  { id: "library", name: "Fireside Library", gradient: "linear-gradient(135deg, #2a1810 0%, #4a2c1a 50%, #6b4226 100%)", accent: "#FFCC00" },
-  { id: "church", name: "Church / Community", gradient: "linear-gradient(135deg, #1a0a2e 0%, #2d1a4a 50%, #4a2d6b 100%)", accent: "#FF2D55" },
-  { id: "terrace", name: "Outdoor Terrace", gradient: "linear-gradient(135deg, #0a2a1a 0%, #1a4a2d 50%, #2d6b4a 100%)", accent: "#34C759" },
-];
-
-const TABLES = [
-  { id: "mahogany", name: "Mahogany Round Table", color: "#6b3a1f", wood: "linear-gradient(135deg, #8b5e3c 0%, #6b3a1f 50%, #4a2510 100%)" },
-  { id: "executive", name: "Executive Board Table", color: "#2c2c2e", wood: "linear-gradient(135deg, #3a3a3c 0%, #2c2c2e 50%, #1c1c1e 100%)" },
-  { id: "family", name: "Family Dinner Table", color: "#a47a4c", wood: "linear-gradient(135deg, #c9a274 0%, #a47a4c 50%, #7a4f2b 100%)" },
-  { id: "drafting", name: "Drafting / Planning", color: "#4a6741", wood: "linear-gradient(135deg, #5a7a51 0%, #4a6741 50%, #3a5431 100%)" },
-  { id: "luncheon", name: "Luncheon Table", color: "#f5f0e8", wood: "linear-gradient(135deg, #fff 0%, #f5f0e8 50%, #e8e0d0 100%)" },
-  { id: "strategy", name: "Strategy War Table", color: "#1c3a5c", wood: "linear-gradient(135deg, #2d5a7b 0%, #1c3a5c 50%, #0a1a3c 100%)" },
-];
-
-const TABLETOPS = [
-  { id: "meeting", name: "Meeting Set", desc: "Notebooks, pens, water glasses", icon: "📓" },
-  { id: "coffee", name: "Coffee & Snacks", desc: "Mugs, pastries, napkins", icon: "☕" },
-  { id: "luncheon", name: "Luncheon Set", desc: "Plates, salads, breadbaskets", icon: "🥗" },
-  { id: "formal", name: "Formal Dinner", desc: "Fine china, candles, wine glasses", icon: "🍷" },
-  { id: "planning", name: "Planning Set", desc: "Documents, blueprints, tablets", icon: "📋" },
-  { id: "chef", name: "Premium Chef Table", desc: "Tasting plates, chef tools, wine pairing", icon: "👨‍🍳" },
-];
-
-const FOODS = [
-  { id: "none", name: "None" }, { id: "coffee", name: "Coffee / Tea / Water" },
-  { id: "snacks", name: "Snacks" }, { id: "hors", name: "Hors d'oeuvres" },
-  { id: "lunch", name: "Luncheon" }, { id: "dinner", name: "Dinner" },
-  { id: "chef", name: "Ultra High-End Chef" },
-];
-
-const AMBIANCES = [
-  { id: "bright", name: "Business Bright", color: "#f0f0f0", overlay: "rgba(255,255,255,0.05)" },
-  { id: "warm", name: "Warm Dinner", color: "#ff9500", overlay: "rgba(255,150,0,0.08)" },
-  { id: "fireside", name: "Fireside Calm", color: "#ffcc00", overlay: "rgba(255,200,0,0.06)" },
-  { id: "jazz", name: "Evening Jazz", color: "#af52de", overlay: "rgba(175,82,222,0.06)" },
-  { id: "focus", name: "Focus Mode", color: "#007aff", overlay: "rgba(0,122,255,0.04)" },
-  { id: "celebrate", name: "Celebration", color: "#ff2d55", overlay: "rgba(255,45,85,0.06)" },
-];
-
-const MUSICS = [
-  { id: "off", name: "Off" }, { id: "jazz", name: "Soft Jazz" },
-  { id: "acoustic", name: "Acoustic" }, { id: "ambient", name: "Ambient Focus" },
-  { id: "worship", name: "Worship / Reflection" }, { id: "event", name: "Private Event Mix" },
-];
-
+// Demo-only avatars (kept inline — these are pitch personas, not real users)
 const DEMO_AVATARS = [
   { id: "chris", name: "Chris", role: "Host", color: "#007AFF", initials: "CH" },
   { id: "roy", name: "Roy", role: "Partner", color: "#FF9500", initials: "RO" },

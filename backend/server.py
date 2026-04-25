@@ -136,6 +136,7 @@ def user_public(u: dict) -> dict:
         "color": u.get("color", "#007AFF"),
         "status": u.get("status", "online"),
         "avatar_url": u.get("avatar_url"),
+        "avatar_tier": u.get("avatar_tier", "stylized"),  # Iteration 18 — namespace reservation
         "onboarded": bool(u.get("onboarded", False)),
         "role": u.get("role", "member"),
         "phone": u.get("phone"),
@@ -479,6 +480,45 @@ class UserUpdateIn(BaseModel):
     onboarded: Optional[bool] = None
     phone: Optional[str] = Field(default=None, max_length=20)
     auto_sms: Optional[bool] = None
+    # Iteration 18 — namespace reservation. Only "preset" and "stylized" are implemented.
+    # "premium_illustrated" and "photoreal" are accepted but indicate deferred tiers.
+    avatar_tier: Optional[Literal["preset", "stylized", "premium_illustrated", "photoreal"]] = None
+
+
+# Iteration 18 — Scene model for /table/:id pages.
+# Stores only string IDs; frontend resolves IDs to visuals via lib/scenes.js.
+# Allowed values must align with /app/frontend/src/lib/scenes.js.
+ROOM_IDS = ("library", "skyline", "dining", "studio", "church", "terrace")
+TABLE_IDS = ("mahogany", "executive", "family", "drafting", "luncheon", "strategy")
+TABLETOP_IDS = ("meeting", "coffee", "luncheon", "formal", "planning", "chef")
+FOOD_IDS = ("none", "coffee", "snacks", "hors", "lunch", "dinner", "chef")
+AMBIANCE_IDS = ("warm", "bright", "fireside", "jazz", "focus", "celebrate")
+MUSIC_IDS = ("off", "jazz", "acoustic", "ambient", "worship", "event")
+
+# Anchor 2 — fixed seat counts per table type
+SEAT_COUNTS = {
+    "mahogany": 8, "executive": 10, "family": 6,
+    "drafting": 8, "luncheon": 6, "strategy": 12,
+}
+
+# Anchor 1 — default scene
+DEFAULT_SCENE = {
+    "room": "library",
+    "table": "mahogany",
+    "tabletop": "meeting",
+    "food": "none",
+    "ambiance": "warm",
+    "music": "off",
+}
+
+
+class SceneIn(BaseModel):
+    room: Literal["library", "skyline", "dining", "studio", "church", "terrace"] = "library"
+    table: Literal["mahogany", "executive", "family", "drafting", "luncheon", "strategy"] = "mahogany"
+    tabletop: Literal["meeting", "coffee", "luncheon", "formal", "planning", "chef"] = "meeting"
+    food: Literal["none", "coffee", "snacks", "hors", "lunch", "dinner", "chef"] = "none"
+    ambiance: Literal["warm", "bright", "fireside", "jazz", "focus", "celebrate"] = "warm"
+    music: Literal["off", "jazz", "acoustic", "ambient", "worship", "event"] = "off"
 
 
 class TableIn(BaseModel):
@@ -486,6 +526,7 @@ class TableIn(BaseModel):
     color: str = "#007AFF"
     active: bool = False
     purpose: Optional[Literal["family", "bible_study", "community", "friends", "work", "other"]] = "other"
+    scene: Optional[SceneIn] = None  # Iteration 18 — optional; defaults to DEFAULT_SCENE
 
 
 class TableUpdateIn(BaseModel):
@@ -493,6 +534,11 @@ class TableUpdateIn(BaseModel):
     color: Optional[str] = None
     active: Optional[bool] = None
     purpose: Optional[Literal["family", "bible_study", "community", "friends", "work", "other"]] = None
+    scene: Optional[SceneIn] = None  # Iteration 18
+
+
+class SeatClaimIn(BaseModel):
+    seat_index: Optional[int] = None  # None ⇒ auto-claim first free seat
 
 
 class SharedItemIn(BaseModel):
@@ -586,6 +632,9 @@ async def startup():
     await db.push_subscriptions.create_index("endpoint", unique=True)
     await db.call_logs.create_index([("participants", 1), ("started_at", -1)])
     await db.call_logs.create_index("call_id", unique=True)
+    # Iteration 18 — table seats: one seat per (table, seat_index); a user holds at most one seat per table
+    await db.table_seats.create_index([("table_id", 1), ("seat_index", 1)], unique=True)
+    await db.table_seats.create_index([("table_id", 1), ("user_id", 1)], unique=True)
     # Seed admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:
@@ -801,23 +850,31 @@ async def get_table(table_id: str, user: dict = Depends(get_current_user)):
         users.append(user_public(u))
     items = await db.shared_items.find({"table_id": table_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
     events = await db.events.find({"table_id": table_id}, {"_id": 0}).sort("date", 1).to_list(200)
+    seats = await db.table_seats.find({"table_id": table_id}, {"_id": 0}).to_list(50)
     t["members"] = users
     t["member_count"] = len(users)
     t["active_count"] = sum(1 for u in users if u.get("status") == "online")
     t["items"] = items
     t["events"] = events
+    t["seats"] = seats
+    # Iteration 18 — default scene for legacy tables created before this iteration
+    if not t.get("scene"):
+        t["scene"] = dict(DEFAULT_SCENE)
     return t
 
 
 @api.post("/tables")
 async def create_table(payload: TableIn, user: dict = Depends(get_current_user)):
     tid = new_id()
+    # Iteration 18 — apply default scene if none provided
+    scene = payload.scene.model_dump() if payload.scene else dict(DEFAULT_SCENE)
     t = {
         "id": tid,
         "name": payload.name.strip(),
         "color": payload.color,
         "active": bool(payload.active),
         "purpose": payload.purpose or "other",
+        "scene": scene,
         "created_by": user["id"],
         "created_at": now_iso(),
         "last_activity": now_iso(),
@@ -838,6 +895,7 @@ async def create_table(payload: TableIn, user: dict = Depends(get_current_user))
     # Reload items/events to include seeded content
     t["items"] = await db.shared_items.find({"table_id": tid}, {"_id": 0}).sort("created_at", -1).to_list(50)
     t["events"] = await db.events.find({"table_id": tid}, {"_id": 0}).sort("date", 1).to_list(50)
+    t["seats"] = []  # Iteration 18 — no claims yet on creation
     return t
 
 
@@ -846,11 +904,20 @@ async def update_table(table_id: str, payload: TableUpdateIn, user: dict = Depen
     membership = await ensure_table_member(table_id, user["id"])
     if membership.get("role") not in ("owner", "admin"):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    updates = {k: v for k, v in payload.model_dump(exclude_none=True).items()}
+    raw = payload.model_dump(exclude_none=True)
+    # If scene changed, we'll broadcast it
+    scene_changed = "scene" in raw
+    updates = dict(raw)
     if updates:
         updates["last_activity"] = now_iso()
         await db.tables.update_one({"id": table_id}, {"$set": updates})
     t = await db.tables.find_one({"id": table_id}, {"_id": 0})
+    if scene_changed and t:
+        await ws_manager.broadcast_to_table(table_id, {
+            "type": "table_scene_updated",
+            "table_id": table_id,
+            "scene": t.get("scene"),
+        })
     return t
 
 
@@ -866,7 +933,80 @@ async def delete_table(table_id: str, user: dict = Depends(get_current_user)):
     await db.shared_items.delete_many({"table_id": table_id})
     await db.events.delete_many({"table_id": table_id})
     await db.messages.delete_many({"table_id": table_id})
+    await db.table_seats.delete_many({"table_id": table_id})  # Iteration 18
     return {"ok": True}
+
+
+# ---------- Iteration 18: Seat assignments ----------
+@api.get("/tables/{table_id}/seats")
+async def list_table_seats(table_id: str, user: dict = Depends(get_current_user)):
+    """Return all seat claims for this table."""
+    await ensure_table_member(table_id, user["id"])
+    seats = await db.table_seats.find({"table_id": table_id}, {"_id": 0}).to_list(50)
+    return seats
+
+
+@api.post("/tables/{table_id}/seats/claim")
+async def claim_seat(table_id: str, payload: SeatClaimIn, user: dict = Depends(get_current_user)):
+    """Claim a seat at this table. If seat_index is omitted, auto-assign the first free seat.
+    A user can hold at most one seat per table — re-claiming moves the user."""
+    await ensure_table_member(table_id, user["id"])
+    table = await db.tables.find_one({"id": table_id}, {"_id": 0})
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+    scene = table.get("scene") or DEFAULT_SCENE
+    seat_count = SEAT_COUNTS.get(scene.get("table"), 8)
+
+    # Existing seats for this table
+    existing = await db.table_seats.find({"table_id": table_id}, {"_id": 0}).to_list(50)
+    taken = {s["seat_index"]: s for s in existing if s["user_id"] != user["id"]}
+
+    if payload.seat_index is None:
+        # Auto-assign first free seat
+        target = next((i for i in range(seat_count) if i not in taken), None)
+        if target is None:
+            raise HTTPException(status_code=409, detail="All seats are taken at this table")
+        seat_index = target
+    else:
+        seat_index = int(payload.seat_index)
+        if seat_index < 0 or seat_index >= seat_count:
+            raise HTTPException(status_code=400, detail=f"Seat index out of range (0..{seat_count - 1})")
+        if seat_index in taken:
+            raise HTTPException(status_code=409, detail="Seat already taken")
+
+    # Move user: drop any existing seat, then upsert the new one
+    await db.table_seats.delete_many({"table_id": table_id, "user_id": user["id"]})
+    seat_doc = {
+        "id": new_id(),
+        "table_id": table_id,
+        "seat_index": seat_index,
+        "user_id": user["id"],
+        "claimed_at": now_iso(),
+    }
+    await db.table_seats.insert_one(seat_doc)
+    seat_doc.pop("_id", None)
+
+    seats = await db.table_seats.find({"table_id": table_id}, {"_id": 0}).to_list(50)
+    await ws_manager.broadcast_to_table(table_id, {
+        "type": "table_seats_updated",
+        "table_id": table_id,
+        "seats": seats,
+    })
+    return {"ok": True, "seat": seat_doc, "seats": seats}
+
+
+@api.delete("/tables/{table_id}/seats/mine")
+async def leave_seat(table_id: str, user: dict = Depends(get_current_user)):
+    """Release the current user's seat at this table."""
+    await ensure_table_member(table_id, user["id"])
+    res = await db.table_seats.delete_many({"table_id": table_id, "user_id": user["id"]})
+    seats = await db.table_seats.find({"table_id": table_id}, {"_id": 0}).to_list(50)
+    await ws_manager.broadcast_to_table(table_id, {
+        "type": "table_seats_updated",
+        "table_id": table_id,
+        "seats": seats,
+    })
+    return {"ok": True, "released": res.deleted_count, "seats": seats}
 
 
 # ---------- Shared items ----------

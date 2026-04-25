@@ -4,13 +4,14 @@ import { api, formatApiErrorDetail } from "../lib/api";
 import RoundTableViz from "../components/rt/RoundTableViz";
 import EmptyState from "../components/rt/EmptyState";
 import HelpTip from "../components/rt/HelpTip";
-import { Share2, UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare, HeartHandshake, Armchair, Eye, Trash2 } from "lucide-react";
+import { Share2, UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare, HeartHandshake, Armchair, Eye, Trash2, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useRTEvent } from "../lib/realtime";
 import SmartSuggestions from "../components/SmartSuggestions";
 import PrayerWall from "../components/PrayerWall";
 import FileViewerModal from "../components/modals/FileViewerModal";
+import SceneEditorModal from "../components/modals/SceneEditorModal";
 import UserAvatar from "../components/UserAvatar";
 import { useNavigate } from "react-router-dom";
 import logger from "../lib/logger";
@@ -20,12 +21,16 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [table, setTable] = useState(null);
+  const [seats, setSeats] = useState([]);
   const [msgText, setMsgText] = useState("");
   const [messages, setMessages] = useState([]);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("table");
   const [viewingItem, setViewingItem] = useState(null);
   const [incomingPresentation, setIncomingPresentation] = useState(null);
+  const [sceneEditorOpen, setSceneEditorOpen] = useState(false);
+
+  const isOwnerOrAdmin = !!table && (table.created_by === user?.id);
 
   const deleteTable = async () => {
     if (!window.confirm(`Delete "${table?.name}"? All shared items and events will be moved to trash.`)) return;
@@ -52,6 +57,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
     try {
       const { data } = await api.get(`/tables/${id}`);
       setTable(data);
+      setSeats(data.seats || []);
     } catch (e) {
       toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
     }
@@ -84,6 +90,15 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
     if (evt.type === "presence" || evt.type === "user_updated") {
       load();
     }
+    if (evt.type === "table_scene_updated" && evt.table_id === id) {
+      // Iteration 18 — scene change broadcast
+      setTable((prev) => prev ? { ...prev, scene: evt.scene } : prev);
+      toast.info("Scene updated");
+    }
+    if (evt.type === "table_seats_updated" && evt.table_id === id) {
+      // Iteration 18 — seat claim/leave broadcast
+      setSeats(evt.seats || []);
+    }
     if (evt.type === "present_start" && evt.table_id === id) {
       // Someone is presenting a file — open the viewer
       const presentItem = { id: evt.item_id, name: evt.item_name, url: evt.item_url, mime_type: evt.item_mime, shared_by_name: "Presenter" };
@@ -96,6 +111,38 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
       toast.info("Presentation ended");
     }
   }, [id, load]);
+
+  // Iteration 18 — seat claim/leave handlers
+  const claimSeat = useCallback(async (seatIndex) => {
+    try {
+      const { data } = await api.post(`/tables/${id}/seats/claim`, { seat_index: seatIndex });
+      setSeats(data.seats || []);
+      toast.success(`Seated at #${seatIndex + 1}`);
+    } catch (e) {
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+    }
+  }, [id]);
+
+  const leaveSeat = useCallback(async () => {
+    try {
+      const { data } = await api.delete(`/tables/${id}/seats/mine`);
+      setSeats(data.seats || []);
+      toast.info("Left your seat");
+    } catch (e) {
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+    }
+  }, [id]);
+
+  const saveScene = useCallback(async (newScene) => {
+    try {
+      const { data } = await api.put(`/tables/${id}`, { scene: newScene });
+      setTable((prev) => prev ? { ...prev, scene: data.scene } : prev);
+      toast.success("Scene saved");
+    } catch (e) {
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+      throw e;
+    }
+  }, [id]);
 
   const sendMessage = async () => {
     if (!msgText.trim() || !table) return;
@@ -137,6 +184,11 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          {isOwnerOrAdmin && (
+            <button className="btn btn-secondary" onClick={() => setSceneEditorOpen(true)} data-testid="table-edit-scene-btn">
+              <Settings2 size={14} /> Edit Scene
+            </button>
+          )}
           <button className="btn btn-secondary" onClick={() => onInvite?.(table)} data-testid="table-invite-btn"><Users size={14} /> Invite</button>
           <button className="btn btn-secondary" onClick={() => onVideoCall?.(table.members?.find((m) => m.id !== user.id))} data-testid="table-video-btn"><Video size={14} /> Video Call</button>
           <button className="btn btn-primary" onClick={() => onShare?.(table)} data-testid="table-share-btn"><UploadCloud size={14} /> Share</button>
@@ -161,7 +213,13 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 14 }} className="table-grid-2col">
         {/* Left: Round Table viz */}
         <div className="card" style={{ padding: 0, overflow: "hidden", minHeight: 560, position: "relative" }}>
-          <RoundTableViz table={table} />
+          <RoundTableViz
+            table={table}
+            seats={seats}
+            currentUserId={user?.id}
+            onClaimSeat={claimSeat}
+            onLeaveSeat={leaveSeat}
+          />
         </div>
 
         {/* Right: Table-scoped panels */}
@@ -266,6 +324,13 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
           tableId={id}
           isPresenting={!!incomingPresentation && incomingPresentation.id === viewingItem.id}
           onClose={() => { setViewingItem(null); setIncomingPresentation(null); }}
+        />
+      )}
+      {sceneEditorOpen && (
+        <SceneEditorModal
+          initial={table?.scene}
+          onSave={saveScene}
+          onClose={() => setSceneEditorOpen(false)}
         />
       )}
     </div>

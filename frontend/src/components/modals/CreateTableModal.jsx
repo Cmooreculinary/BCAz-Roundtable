@@ -1,7 +1,9 @@
 import React, { useState } from "react";
-import { X, Armchair, Home, BookOpen, Heart, Sparkles, Briefcase, Users } from "lucide-react";
+import { X, Armchair, Home, BookOpen, Heart, Sparkles, Briefcase, Users, ChevronDown, ChevronUp, Settings2 } from "lucide-react";
 import { api, formatApiErrorDetail } from "../../lib/api";
 import { toast } from "sonner";
+import { DEFAULT_SCENE } from "../../lib/scenes";
+import { SceneEditor } from "./SceneEditorModal";
 
 const COLORS = ["#007AFF", "#34C759", "#FF9500", "#FF3B30", "#AF52DE", "#FF2D55", "#FFCC00", "#5AC8FA"];
 
@@ -20,12 +22,14 @@ export default function CreateTableModal({ onClose, onCreated }) {
   const [active, setActive] = useState(true);
   const [purpose, setPurpose] = useState("family");
   const [busy, setBusy] = useState(false);
+  const [sceneOpen, setSceneOpen] = useState(false);
+  const [scene, setScene] = useState({ ...DEFAULT_SCENE });
 
   const submit = async () => {
     if (!name.trim()) return toast.error("Name required");
     setBusy(true);
     try {
-      const { data } = await api.post("/tables", { name: name.trim(), color, active, purpose });
+      const { data } = await api.post("/tables", { name: name.trim(), color, active, purpose, scene });
       toast.success(`Table "${data.name}" created`);
       onCreated?.(data);
     } catch (e) {
@@ -35,7 +39,7 @@ export default function CreateTableModal({ onClose, onCreated }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} data-testid="create-table-modal">
+      <div className="modal" onClick={(e) => e.stopPropagation()} data-testid="create-table-modal" style={{ maxWidth: 560, maxHeight: "90vh", overflow: "auto" }}>
         <div style={{ padding: 18, borderBottom: "1px solid var(--border-light)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div className="avatar" style={{ width: 36, height: 36, background: color, borderRadius: 10 }}><Armchair size={18} /></div>
@@ -77,10 +81,38 @@ export default function CreateTableModal({ onClose, onCreated }) {
               <button key={c} onClick={() => setColor(c)} data-testid={`create-table-color-${c.replace("#", "")}`} style={{ width: 28, height: 28, borderRadius: 8, background: c, cursor: "pointer", border: color === c ? "3px solid var(--text-primary)" : "1px solid var(--border-color)" }} />
             ))}
           </div>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", marginBottom: 14 }}>
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} data-testid="create-table-active" />
             Make this table live right now
           </label>
+
+          {/* Iteration 18 — collapsible scene customization */}
+          <button
+            type="button"
+            onClick={() => setSceneOpen((v) => !v)}
+            data-testid="create-table-scene-toggle"
+            style={{
+              width: "100%", padding: "10px 12px", borderRadius: 10,
+              display: "flex", alignItems: "center", gap: 8,
+              background: "var(--bg-secondary)", border: "1px solid var(--border-color)",
+              cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-primary)",
+            }}
+          >
+            <Settings2 size={14} color="var(--mac-blue)" />
+            <span style={{ flex: 1, textAlign: "left" }}>Customize scene <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span></span>
+            <span style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 400 }}>
+              {scene.room === DEFAULT_SCENE.room && scene.table === DEFAULT_SCENE.table ? "Defaults" : "Customized"}
+            </span>
+            {sceneOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {sceneOpen && (
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid var(--border-light)", background: "var(--bg-tertiary)" }}>
+              <SceneEditor value={scene} onChange={setScene} />
+              <div style={{ marginTop: 10, fontSize: 11, color: "var(--text-secondary)" }}>
+                Changes apply when you create the table. You can edit the scene any time.
+              </div>
+            </div>
+          )}
         </div>
         <div style={{ padding: 14, borderTop: "1px solid var(--border-light)", display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
