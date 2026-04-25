@@ -168,7 +168,7 @@ export default function RoundTableViz({ table, seats = [], currentUserId, onClai
 
             return (
               <button
-                key={i}
+                key={`seat-${i}`}
                 onClick={handleClick}
                 data-testid={`rt-seat-${i}`}
                 title={

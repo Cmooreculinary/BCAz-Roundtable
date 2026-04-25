@@ -262,7 +262,7 @@ function AvatarSeating({ seated, seatAvatar, clearSeats, autoSeat }) {
             const y = 170 + 130 * Math.sin(angle) - 24;
             const av = seated[i];
             return (
-              <div key={i} style={{
+              <div key={`gather-seat-${i}`} style={{
                 position: "absolute", left: x, top: y,
                 width: 48, height: 48, borderRadius: "50%",
                 background: av ? av.color : "rgba(255,255,255,0.06)",
@@ -434,8 +434,8 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
           position: "absolute", bottom: 80, left: 20, width: 360,
           display: "flex", flexDirection: "column", gap: 8,
         }}>
-          {chatMessages.map((m, i) => (
-            <div key={i} style={{
+          {chatMessages.map((m) => (
+            <div key={m.id} style={{
               background: "rgba(0,0,0,0.7)", backdropFilter: "blur(12px)",
               borderRadius: 14, padding: "10px 14px", borderLeft: `3px solid ${m.color}`,
               animation: "fadeScaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
