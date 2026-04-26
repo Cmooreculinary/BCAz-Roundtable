@@ -56,6 +56,14 @@ def member():
 
 
 @pytest.fixture(scope="module")
+def member2():
+    """A third user — used by Iteration 18a shrink test."""
+    import uuid
+    email = f"iter18-{uuid.uuid4().hex[:8]}@roundtable.app"
+    return _register(email, "iter18pass!", "Iter18 Member2"), email
+
+
+@pytest.fixture(scope="module")
 def created_table(admin):
     """Create a table with a custom scene; returns table dict."""
     payload = {
@@ -178,7 +186,6 @@ class TestSeats:
         r = admin.post(f"{BASE_URL}/api/tables/{created_table['id']}/seats/claim", json={"seat_index": 7})
         assert r.status_code == 200
         seats = r.json()["seats"]
-        admin_seats = [s for s in seats if s["user_id"]]  # all seats have user_id
         assert any(s["seat_index"] == 7 for s in seats)
         # must not have a stale seat at 3 for the same user
         my_seats = [s for s in seats if s["seat_index"] == 3]
@@ -225,6 +232,123 @@ class TestSeats:
         me = admin.get(f"{BASE_URL}/api/me").json()
         for s in body["seats"]:
             assert s["user_id"] != me["id"]
+
+
+# ─────────────────────────────────────────────────
+# 2a) ITERATION 18a — TABLE-SHRINK TRUNCATION
+# ─────────────────────────────────────────────────
+
+class TestTableShrinkTruncation:
+    """Iteration 18a Fix 1: when the chair changes the scene's table to one with
+    fewer seats, claims at indices >= new seat_count must be deleted and a
+    table_seats_updated broadcast must fire. Same-seat-count swaps must not
+    truncate. The seat is sacred — orphan claims block their owners from re-
+    seating without manual intervention."""
+
+    def test_shrink_strategy_to_family_truncates_orphan_seats(self, admin, member, member2):
+        """Strategy (12 seats) → family (6 seats). Claims at 5/8/10 across three
+        users should leave only the seat at index 5; 8 and 10 must be gone, and
+        their owners must be free to claim a fresh seat in 0..5 without first
+        calling DELETE /seats/mine."""
+        member_s, _ = member
+        member2_s, _ = member2
+
+        # 1) Create a strategy table (12 seats)
+        r = admin.post(f"{BASE_URL}/api/tables", json={
+            "name": "Shrink Test Table",
+            "color": "#1c3a5c",
+            "active": True,
+            "purpose": "work",
+            "scene": {
+                "room": "skyline", "table": "strategy",
+                "tabletop": "planning", "food": "none",
+                "ambiance": "focus", "music": "off",
+            },
+        })
+        assert r.status_code == 200
+        tid = r.json()["id"]
+
+        # 2) Bring two more members in via invite
+        inv = admin.post(f"{BASE_URL}/api/invites", json={"table_id": tid, "max_uses": 5, "expires_in_days": 1})
+        assert inv.status_code == 200
+        code = inv.json()["code"]
+        assert member_s.post(f"{BASE_URL}/api/invites/join", json={"code": code}).status_code == 200
+        assert member2_s.post(f"{BASE_URL}/api/invites/join", json={"code": code}).status_code == 200
+
+        # 3) Three claims spanning indices 5, 8, 10
+        assert admin.post(f"{BASE_URL}/api/tables/{tid}/seats/claim", json={"seat_index": 5}).status_code == 200
+        assert member_s.post(f"{BASE_URL}/api/tables/{tid}/seats/claim", json={"seat_index": 8}).status_code == 200
+        assert member2_s.post(f"{BASE_URL}/api/tables/{tid}/seats/claim", json={"seat_index": 10}).status_code == 200
+
+        # 4) Sanity — all three claims present pre-shrink
+        seats_before = admin.get(f"{BASE_URL}/api/tables/{tid}/seats").json()
+        indices_before = sorted(s["seat_index"] for s in seats_before)
+        assert indices_before == [5, 8, 10]
+
+        # 5) Shrink: strategy (12) → family (6)
+        r = admin.put(f"{BASE_URL}/api/tables/{tid}", json={
+            "scene": {
+                "room": "library", "table": "family",
+                "tabletop": "meeting", "food": "none",
+                "ambiance": "warm", "music": "off",
+            },
+        })
+        assert r.status_code == 200
+        assert r.json()["scene"]["table"] == "family"
+
+        # 6) Only the seat at index 5 should remain — 8 and 10 are orphans, gone
+        seats_after = admin.get(f"{BASE_URL}/api/tables/{tid}/seats").json()
+        indices_after = sorted(s["seat_index"] for s in seats_after)
+        assert indices_after == [5], f"Expected [5], got {indices_after}"
+
+        # 7) The two displaced users must be able to claim a fresh in-range seat
+        #    without first calling DELETE /seats/mine (orphan was cleared for them)
+        r = member_s.post(f"{BASE_URL}/api/tables/{tid}/seats/claim", json={"seat_index": 1})
+        assert r.status_code == 200, f"member should be free to claim 1: {r.text}"
+        r = member2_s.post(f"{BASE_URL}/api/tables/{tid}/seats/claim", json={"seat_index": 2})
+        assert r.status_code == 200, f"member2 should be free to claim 2: {r.text}"
+
+        # cleanup
+        admin.delete(f"{BASE_URL}/api/tables/{tid}")
+
+    def test_same_seat_count_swap_does_not_truncate(self, admin):
+        """mahogany (8) → drafting (8). Claim at index 7 must survive because the
+        seat geometry is unchanged. Critical — we don't want false-positive
+        truncations on cosmetic table changes."""
+        r = admin.post(f"{BASE_URL}/api/tables", json={
+            "name": "Same-Count Swap",
+            "color": "#007AFF",
+            "active": True,
+            "purpose": "work",
+            "scene": {
+                "room": "library", "table": "mahogany",
+                "tabletop": "meeting", "food": "none",
+                "ambiance": "warm", "music": "off",
+            },
+        })
+        assert r.status_code == 200
+        tid = r.json()["id"]
+
+        # Claim at the highest index in the 0..7 range
+        assert admin.post(f"{BASE_URL}/api/tables/{tid}/seats/claim", json={"seat_index": 7}).status_code == 200
+
+        # Swap mahogany → drafting (both 8 seats)
+        r = admin.put(f"{BASE_URL}/api/tables/{tid}", json={
+            "scene": {
+                "room": "studio", "table": "drafting",
+                "tabletop": "planning", "food": "none",
+                "ambiance": "focus", "music": "off",
+            },
+        })
+        assert r.status_code == 200
+
+        # Seat at 7 must still be there — no truncation on equal seat counts
+        seats = admin.get(f"{BASE_URL}/api/tables/{tid}/seats").json()
+        indices = [s["seat_index"] for s in seats]
+        assert 7 in indices, f"Seat at index 7 was incorrectly truncated on equal-count swap: {indices}"
+
+        # cleanup
+        admin.delete(f"{BASE_URL}/api/tables/{tid}")
 
 
 # ─────────────────────────────────────────────────

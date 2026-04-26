@@ -905,19 +905,48 @@ async def update_table(table_id: str, payload: TableUpdateIn, user: dict = Depen
     if membership.get("role") not in ("owner", "admin"):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     raw = payload.model_dump(exclude_none=True)
-    # If scene changed, we'll broadcast it
     scene_changed = "scene" in raw
+
+    # Iteration 18a — capture old table_id BEFORE the write so we can detect a shrink
+    old_table_doc = await db.tables.find_one({"id": table_id}, {"_id": 0})
+    if not old_table_doc:
+        raise HTTPException(status_code=404, detail="Table not found")
+    old_table_id = ((old_table_doc.get("scene") or DEFAULT_SCENE).get("table"))
+
     updates = dict(raw)
     if updates:
         updates["last_activity"] = now_iso()
         await db.tables.update_one({"id": table_id}, {"$set": updates})
     t = await db.tables.find_one({"id": table_id}, {"_id": 0})
+
+    seats_changed = False
     if scene_changed and t:
+        new_table_id = (t.get("scene") or DEFAULT_SCENE).get("table")
+        # Iteration 18a — only consider truncation when the table type actually changed.
+        # Same-id swaps (e.g. mahogany→mahogany with new ambiance) don't touch seat geometry.
+        if new_table_id != old_table_id:
+            new_seat_count = SEAT_COUNTS.get(new_table_id, 8)
+            res = await db.table_seats.delete_many({
+                "table_id": table_id,
+                "seat_index": {"$gte": new_seat_count},
+            })
+            if res.deleted_count > 0:
+                seats_changed = True
+
         await ws_manager.broadcast_to_table(table_id, {
             "type": "table_scene_updated",
             "table_id": table_id,
             "scene": t.get("scene"),
         })
+
+    if seats_changed:
+        seats = await db.table_seats.find({"table_id": table_id}, {"_id": 0}).to_list(50)
+        await ws_manager.broadcast_to_table(table_id, {
+            "type": "table_seats_updated",
+            "table_id": table_id,
+            "seats": seats,
+        })
+
     return t
 
 

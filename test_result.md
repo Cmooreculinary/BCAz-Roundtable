@@ -133,6 +133,9 @@ backend:
         - working: true
           agent: "main"
           comment: "New collection `table_seats` with unique indices on (table_id,seat_index) and (table_id,user_id) — guarantees one seat per slot and one seat per user per table. Endpoints: GET /api/tables/{id}/seats, POST /api/tables/{id}/seats/claim (seat_index optional — auto-assigns first free), DELETE /api/tables/{id}/seats/mine. Seat counts come from SEAT_COUNTS (mahogany 8, executive 10, family 6, drafting 8, luncheon 6, strategy 12). Out-of-range seat_index → 400; taken seat → 409. Every change broadcasts table_seats_updated to all table members. Re-claiming moves the user. Cleaned up on table delete. 7 pytest cases passing."
+        - working: true
+          agent: "main"
+          comment: "Iteration 18a — Fix 1 applied. PUT /api/tables/{id} now captures the old scene.table BEFORE writing, and when the table type changes to a smaller-seat-count table (e.g. strategy 12 → family 6), it deletes any table_seats rows with seat_index >= new_seat_count and broadcasts table_seats_updated alongside table_scene_updated. Same-seat-count swaps (e.g. mahogany→drafting, both 8) skip truncation entirely. Two new tests in TestTableShrinkTruncation prove the truncation path AND the no-false-positive path. Total 19/19 passing."
   - task: "Avatar tier namespace reservation on User"
     implemented: true
     working: true
@@ -260,3 +263,49 @@ agent_communication:
         Path drift noted silently: primer referenced design_guidelines.md (repo has design_guidelines.json) and treated as canonical — code in index.css is the source of truth for the macOS look anyway.
 
         Branch: feature/scenes-seats-avatars (not yet pushed — founder uses Save to GitHub for write actions). PR title would be "Iteration 18 — Scenes, Seats & Avatars".
+
+    - agent: "main"
+      message: |
+        Iteration 18a — bug fixes (founder-requested correctness pass on the seat code).
+
+        Fix 1 — Truncate orphan seats when chair shrinks the table type. SHIPPED.
+          • backend/server.py update_table now captures the old scene.table BEFORE the write,
+            and when the new scene.table is a different table-id with a smaller seat count
+            (per SEAT_COUNTS), it deletes any table_seats rows with seat_index >= new_seat_count
+            and broadcasts table_seats_updated alongside table_scene_updated.
+          • Same-id swaps (and same-seat-count swaps like mahogany ↔ drafting) skip the
+            truncation entirely — no false-positive deletes on cosmetic changes.
+          • New tests in TestTableShrinkTruncation:
+              - test_shrink_strategy_to_family_truncates_orphan_seats   (PASS)
+              - test_same_seat_count_swap_does_not_truncate             (PASS)
+            The shrink test seats three users at indices 5/8/10 on a 12-seat strategy table,
+            shrinks to a 6-seat family table, and asserts: only seat 5 survives, AND the
+            two displaced users can immediately re-claim seats 1 and 2 without first calling
+            DELETE /seats/mine. The orphan was cleared on their behalf — the seat metaphor
+            stays honest.
+
+        Fix 2 — Auto-clear seat when a member is removed from a table. NO CODE CHANGE NEEDED.
+          • Searched the entire backend for `table_members.delete*`. Only one call exists,
+            at backend/server.py:932 inside DELETE /api/tables/{id}, which already cascades
+            to table_seats.delete_many({table_id}) on line 936 (Iteration 18 work).
+          • There is no kick-by-owner endpoint and no self-leave-table endpoint in the
+            codebase today. The phantom-seat bug is dormant — it cannot be triggered by
+            any current code path.
+          • Architectural note for Iteration 19+: when the kick or self-leave endpoint
+            ships, mirror the cascade pattern from delete_table:
+                await db.table_members.delete_one({"table_id": tid, "user_id": uid})
+                await db.table_seats.delete_many({"table_id": tid, "user_id": uid})
+                # then broadcast table_seats_updated to remaining members
+            I did NOT preemptively add a helper or stub endpoint — that's scope expansion.
+            The pattern is documented here so the next iteration can land it cleanly.
+
+        Pass count: 19/19 in tests/test_iteration_18.py (was 17/17). Zero regressions.
+        Lint: clean. Backend service running. No frontend changes — Edit Scene still
+        renders identically; the truncation happens server-side and arrives at clients
+        via the existing table_seats_updated WebSocket handler in TableView.jsx.
+
+        One small adjacent fix: a dead local variable (admin_seats) in an existing Iter 18
+        test (test_claim_moves_user) was removed to clear a Ruff F841 warning. Pure deletion,
+        no behavior change.
+
+        Branch: still feature/scenes-seats-avatars. Same PR title.
