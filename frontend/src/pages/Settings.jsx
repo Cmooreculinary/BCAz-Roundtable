@@ -161,7 +161,7 @@ export default function Settings() {
           <Sparkles size={14} color="var(--mac-purple)" /> Avatar Tier
         </div>
         <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 10 }}>
-          Your seat at every Roundtable_VO table reflects your avatar tier.
+          Your seat at every MICRO table reflects your avatar tier.
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {AVATAR_TIERS.map((t) => {

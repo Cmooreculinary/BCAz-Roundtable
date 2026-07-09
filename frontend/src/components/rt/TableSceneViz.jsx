@@ -23,7 +23,7 @@ const TYPE_COLOR = {
 };
 
 /**
- * RoundTableViz — Iteration 18.
+ * TableSceneViz — Iteration 18.
  * Renders a real table inside its scene (room background, wood-grain table,
  * fixed seat slots for the table type). Members claim seats; empty seats are dashed.
  *
@@ -35,7 +35,7 @@ const TYPE_COLOR = {
  *   onLeaveSeat:    () => void            — release my seat
  *   onMemberClick:  (member) => void
  */
-export default function RoundTableViz({ table, seats = [], currentUserId, onClaimSeat, onLeaveSeat, onMemberClick }) {
+export default function TableSceneViz({ table, seats = [], currentUserId, onClaimSeat, onLeaveSeat, onMemberClick }) {
   const scene = useMemo(() => resolveScene(table?.scene), [table?.scene]);
   const live = !!table?.active;
   const members = table?.members || [];
@@ -274,7 +274,7 @@ function SceneChip({ label, dot }) {
 /**
  * Pure helper — derives seat visual state once.
  * Read this when you need to know what a seat looks like in any state.
- * The seat is the central metaphor of Roundtable_VO — make it explicit, not nested.
+ * The seat is the central metaphor of MICRO — make it explicit, not nested.
  */
 function seatVisuals({ occupant, isMine, isClaimable, isMoveTarget, seatNumber }) {
   // Empty seat — three sub-states

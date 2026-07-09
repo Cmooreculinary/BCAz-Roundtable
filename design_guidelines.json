@@ -1,5 +1,5 @@
 {
-  "project_name": "Roundtable_VO",
+  "project_name": "MICRO",
   "theme": "macOS Hybrid (Light & Dark)",
   "archetype": "Apple Glassmorphism & High Contrast",
   "design_principles": [
@@ -97,7 +97,7 @@
       "styling": "glassmorphism backdrop-blur-[30px], p-2 rounded-xl border border-white/20 dark:border-white/10",
       "tiles": "48px height/width rounded-lg, hover:scale-125 hover:-translate-y-4 transition-all spring, with unread badges."
     },
-    "round_table_visualization": {
+        "table_scene_visualization": {
       "concept": "Circular wooden table, radial member seats, shared items on surface.",
       "live_state": "glow ring (table_live_glow), rotating members (ring_rotate), active avatars glow (avatar_active_glow).",
       "dormant_state": "desaturated colors, dashed border ring, no glowing animations.",

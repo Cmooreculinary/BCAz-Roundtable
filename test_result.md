@@ -171,17 +171,17 @@ frontend:
         - working: true
           agent: "main"
           comment: "Removed inline ROOMS/TABLES/TABLETOPS/FOODS/AMBIANCES/MUSICS arrays — imports from ../lib/scenes. Demo behavior unchanged: auto-start picks ROOMS[0]=Skyline / TABLES[0]=Mahogany / TABLETOPS[3]=Formal / FOODS[6]=Chef / AMBIANCES[1]=Warm / MUSICS[1]=Soft Jazz, exactly as before. Build passes. Anchor: /gather demo still works identically."
-  - task: "RoundTableViz upgraded to render scene + fixed seat slots"
+  - task: "TableSceneViz upgraded to render scene + fixed seat slots"
     implemented: true
     working: true
-    file: "frontend/src/components/rt/RoundTableViz.jsx"
+    file: "frontend/src/components/rt/TableSceneViz.jsx"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
         - working: true
           agent: "main"
-          comment: "Full rewrite. Now renders: room gradient background + ambiance overlay; wood-grain round table at center sized by table type; N dashed-outline seat slots arranged radially where N=SEAT_COUNTS[scene.table]; scene chips top-left (Room · Ambiance · Music · Food); LIVE/DORMANT badge top-right; member portraits (DiceBear via UserAvatar) appear when seats are claimed; user's own seat is highlighted with gold ring; click empty seat → onClaimSeat(idx); click own seat → onLeaveSeat. Member name labels under occupied seats. Verified visually — screenshot shows 8 dashed slots numbered 1–8 around mahogany table with Fireside Library backdrop."
+          comment: "Full rewrite. Now renders: room gradient background + ambiance overlay; wood-grain table at center sized by table type; N dashed-outline seat slots arranged radially where N=SEAT_COUNTS[scene.table]; scene chips top-left (Room · Ambiance · Music · Food); LIVE/DORMANT badge top-right; member portraits (DiceBear via UserAvatar) appear when seats are claimed; user's own seat is highlighted with gold ring; click empty seat → onClaimSeat(idx); click own seat → onLeaveSeat. Member name labels under occupied seats. Verified visually — screenshot shows 8 dashed slots numbered 1–8 around mahogany table with Fireside Library backdrop."
   - task: "SceneEditorModal + inline SceneEditor"
     implemented: true
     working: true
@@ -238,7 +238,7 @@ test_plan:
     - "Scene fields persisted on Table"
     - "Seat assignments — claim/leave/auto + WebSocket broadcast"
     - "Avatar tier namespace reservation on User"
-    - "RoundTableViz upgraded to render scene + fixed seat slots"
+    - "TableSceneViz upgraded to render scene + fixed seat slots"
     - "TableView — Edit Scene + seat claim/leave + WS sync"
   stuck_tasks: []
   test_all: false
@@ -256,7 +256,7 @@ agent_communication:
           • Avatar tier namespace reserved on User (avatar_tier enum: preset|stylized|premium_illustrated|photoreal). Settings shows indicator card with the 2 deferred tiers locked + 'Coming soon'. NO Premium picker, NO upload pipeline, NO paywall — strictly namespace per Anchor 3.
 
         Backend tests: 17/17 passing in tests/test_iteration_18.py.
-        Regression sweep: 101/106 passing across roundtable_api + phase3 + phase4 tests. The 5 failures are pre-existing issues unrelated to Iteration 18 — they hardcode invite code 'HO4IIE6D' which doesn't exist in the dev DB (stale test data from a prior session). My changes did not touch invite preview or AI suggest endpoints.
+        Regression sweep: 101/106 passing across micro_api + phase3 + phase4 tests. The 5 failures are pre-existing issues unrelated to Iteration 18 — they hardcode invite code 'HO4IIE6D' which doesn't exist in the dev DB (stale test data from a prior session). My changes did not touch invite preview or AI suggest endpoints.
 
         Frontend self-test: smoke screenshots confirmed (login → portal → /table/:id) — wood-grain table, 8 dashed seat slots, scene chips, Edit Scene button all rendering as the acceptance criteria spell out. Frontend testing agent NOT run — preserving credits per founder protocol (opt-in).
 

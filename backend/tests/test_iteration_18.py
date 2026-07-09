@@ -18,7 +18,7 @@ if _env_test.exists():
             os.environ.setdefault(k.strip(), v.strip().strip('"'))
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@roundtable.app")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@micro.app")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 
@@ -51,7 +51,7 @@ def admin():
 def member():
     """A second user used as a table member for seat claim tests."""
     import uuid
-    email = f"iter18-{uuid.uuid4().hex[:8]}@roundtable.app"
+    email = f"iter18-{uuid.uuid4().hex[:8]}@micro.app"
     return _register(email, "iter18pass!", "Iter18 Member"), email
 
 
@@ -59,7 +59,7 @@ def member():
 def member2():
     """A third user — used by Iteration 18a shrink test."""
     import uuid
-    email = f"iter18-{uuid.uuid4().hex[:8]}@roundtable.app"
+    email = f"iter18-{uuid.uuid4().hex[:8]}@micro.app"
     return _register(email, "iter18pass!", "Iter18 Member2"), email
 
 

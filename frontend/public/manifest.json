@@ -1,8 +1,8 @@
 {
-  "short_name": "Roundtable_VO",
-  "name": "Roundtable_VO — Where your people gather",
+  "short_name": "MICRO",
+  "name": "MICRO — Where your people gather",
   "description": "macOS-styled unified collaboration platform. Families, faith communities, project teams, neighborhoods.",
-  "start_url": "/",
+    "start_url": "/micro",
   "display": "standalone",
   "theme_color": "#007AFF",
   "background_color": "#F5F5F7",

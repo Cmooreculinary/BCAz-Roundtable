@@ -1,5 +1,5 @@
 /**
- * WebRTC service for Roundtable_VO — handles peer connections, media streams,
+ * WebRTC service for MICRO — handles peer connections, media streams,
  * and signaling via the existing WebSocket layer.
  *
  * Supports mesh topology for group calls (up to ~6 peers).

@@ -42,7 +42,7 @@ def second_user_session():
     s.headers.update({"Content-Type": "application/json"})
     
     # Try to register, if already exists, login
-    email = "phase4_test_user@roundtable.app"
+    email = "phase4_test_user@micro.app"
     password = TEST_PASSWORD
     
     resp = s.post(f"{BASE_URL}/api/auth/register", json={

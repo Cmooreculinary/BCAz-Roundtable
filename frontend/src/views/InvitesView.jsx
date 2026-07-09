@@ -46,7 +46,7 @@ export default function InvitesView({ tables, onOpenInvite }) {
     try {
       await api.post("/bridges/sms", {
         phone: smsPhone.trim(),
-        message: `You're invited to join "${smsTarget.tableName}" on Roundtable_VO! Use code: ${smsTarget.code}`,
+        message: `You're invited to join "${smsTarget.tableName}" on MICRO! Use code: ${smsTarget.code}`,
       });
       toast.success(`Invite sent via SMS to ${smsPhone}`);
       setSmsTarget(null);
@@ -117,7 +117,7 @@ export default function InvitesView({ tables, onOpenInvite }) {
                   </div>
                   <code style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1.5, background: "var(--bg-tertiary)", padding: "4px 8px", borderRadius: 6 }}>{inv.code}</code>
                   {smsConfigured && (
-                    <button className="btn btn-secondary" onClick={() => { setSmsTarget({ code: inv.code, tableName: table?.name || "Roundtable_VO" }); setSmsPhone(""); }} data-testid={`invite-sms-${inv.id}`} title="Send via SMS">
+                    <button className="btn btn-secondary" onClick={() => { setSmsTarget({ code: inv.code, tableName: table?.name || "MICRO" }); setSmsPhone(""); }} data-testid={`invite-sms-${inv.id}`} title="Send via SMS">
                       <Phone size={12} />
                     </button>
                   )}

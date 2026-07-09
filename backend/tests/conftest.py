@@ -1,5 +1,5 @@
 """
-Shared pytest fixtures for Roundtable_VO API tests.
+Shared pytest fixtures for MICRO API tests.
 Credentials loaded from environment variables or .env.test file.
 """
 import pytest
@@ -19,9 +19,9 @@ if _env_test.exists():
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
 # Test credentials from environment
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@roundtable.app")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@micro.app")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
-TEST_USER_EMAIL = os.environ.get("TEST_USER_EMAIL", "demo@roundtable.app")
+TEST_USER_EMAIL = os.environ.get("TEST_USER_EMAIL", "demo@micro.app")
 TEST_USER_PASSWORD = os.environ.get("TEST_USER_PASSWORD", "")
 TEST_USER_NAME = os.environ.get("TEST_USER_NAME", "Demo User")
 TEST_PASSWORD = os.environ.get("TEST_PASSWORD", "")

@@ -1,27 +1,27 @@
 services:
   - type: web
-    name: roundtable-vo-backend
+    name: micro-backend
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
     disk:
-      name: roundtable-vo-data
+      name: micro-data
       mountPath: /opt/data
       sizeGB: 5
     envVars:
       - key: DB_NAME
-        value: roundtable_vo
+        value: micro
       - key: SQLITE_PATH
-        value: /opt/data/roundtable_vo.sqlite3
+        value: /opt/data/micro.sqlite3
       - key: UPLOAD_ROOT
         value: /opt/data/uploads
       - key: APP_NAME
-        value: Roundtable_VO
+        value: micro
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGINS
-        value: https://roundtable-vo-frontend.onrender.com
+        value: https://micro-frontend.onrender.com
       - key: VAPID_PRIVATE_KEY
         sync: false
       - key: VAPID_PUBLIC_KEY
@@ -38,14 +38,15 @@ services:
         sync: false
 
   - type: web
-    name: roundtable-vo-frontend
+    name: micro-frontend
     runtime: static
     rootDir: frontend
     buildCommand: npm install --legacy-peer-deps --package-lock=false && npm run build
     staticPublishPath: build
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: REACT_APP_BACKEND_URL
-        fromService:
-          name: roundtable-vo-backend
-          type: web
-          property: host
+        value: https://micro-backend.onrender.com

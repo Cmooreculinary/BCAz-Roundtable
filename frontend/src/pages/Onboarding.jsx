@@ -153,7 +153,7 @@ export default function Onboarding() {
                 <Armchair size={28} />
               </div>
               <div>
-                <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>Welcome to Roundtable_VO</h1>
+                <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>Welcome to MICRO</h1>
                 <p className="text-mute" style={{ margin: 0, fontSize: 13 }}>Where your people gather.</p>
               </div>
             </div>
@@ -359,8 +359,8 @@ export default function Onboarding() {
             )}
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>
-              <button className="btn btn-secondary" onClick={() => window.location.href = `sms:?body=Join my Roundtable_VO table with code ${inviteCode || "..."}`} disabled={!inviteCode}><MessageSquare size={14} /> Text</button>
-              <button className="btn btn-secondary" onClick={() => window.location.href = `mailto:?subject=Join Roundtable_VO&body=Join with code: ${inviteCode || "..."}`} disabled={!inviteCode}><Mail size={14} /> Email</button>
+              <button className="btn btn-secondary" onClick={() => window.location.href = `sms:?body=Join my MICRO table with code ${inviteCode || "..."}`} disabled={!inviteCode}><MessageSquare size={14} /> Text</button>
+              <button className="btn btn-secondary" onClick={() => window.location.href = `mailto:?subject=Join MICRO&body=Join with code: ${inviteCode || "..."}`} disabled={!inviteCode}><Mail size={14} /> Email</button>
             </div>
 
             <div style={{ ...footerRow, marginTop: 18 }}>
