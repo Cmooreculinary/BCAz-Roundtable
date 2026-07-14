@@ -1,5 +1,5 @@
 """
-MICRO API Backend Tests
+Roundtable_VO API Backend Tests
 Tests all core endpoints: Auth, Users, Tables, Items, Messages, Emails, Events, Notifications, Invites, Contacts, Referrals
 """
 import pytest
@@ -13,7 +13,7 @@ BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 # Test credentials
 ADMIN_EMAIL = ADMIN_EMAIL
 ADMIN_PASSWORD = ADMIN_PASSWORD
-TEST_USER_EMAIL = "test_demo@micro.app"
+TEST_USER_EMAIL = "test_demo@roundtable.app"
 TEST_USER_PASSWORD = TEST_USER_PASSWORD
 TEST_USER_NAME = "Test Demo User"
 
@@ -27,7 +27,7 @@ class TestHealthCheck:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
-        assert "MICRO" in data["service"]
+        assert "Roundtable_VO" in data["service"]
         print(f"✓ API health check passed: {data}")
 
 
@@ -63,7 +63,7 @@ class TestAuthEndpoints:
     def test_register_new_user(self):
         """Test user registration creates user and sets cookies"""
         session = requests.Session()
-        unique_email = f"test_{int(time.time())}@micro.app"
+        unique_email = f"test_{int(time.time())}@roundtable.app"
         response = session.post(f"{BASE_URL}/api/auth/register", json={
             "email": unique_email,
             "password": TEST_PASSWORD,
@@ -342,7 +342,7 @@ class TestTableMembershipGuard:
         
         # Create and login as different user
         other_session = requests.Session()
-        unique_email = f"test_other_{int(time.time())}@micro.app"
+        unique_email = f"test_other_{int(time.time())}@roundtable.app"
         other_session.post(f"{BASE_URL}/api/auth/register", json={
             "email": unique_email,
             "password": TEST_PASSWORD,
@@ -373,7 +373,7 @@ class TestTableMembershipGuard:
         
         # Create and login as different user
         other_session = requests.Session()
-        unique_email = f"test_item_{int(time.time())}@micro.app"
+        unique_email = f"test_item_{int(time.time())}@roundtable.app"
         other_session.post(f"{BASE_URL}/api/auth/register", json={
             "email": unique_email,
             "password": TEST_PASSWORD,
@@ -807,7 +807,7 @@ class TestInvites:
         
         # New user joins via invite
         user_session = requests.Session()
-        unique_email = f"test_join_{int(time.time())}@micro.app"
+        unique_email = f"test_join_{int(time.time())}@roundtable.app"
         user_session.post(f"{BASE_URL}/api/auth/register", json={
             "email": unique_email,
             "password": TEST_PASSWORD,

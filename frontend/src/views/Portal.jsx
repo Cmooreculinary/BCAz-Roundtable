@@ -341,7 +341,7 @@ function SetupReminder({ user, onGoto, dismissed, onDismiss }) {
       <div className="card" style={{ padding: "12px 16px", marginBottom: 14, borderLeft: "4px solid var(--mac-orange)", display: "flex", alignItems: "flex-start", gap: 10 }} data-testid="setup-reminder-banner">
         <AlertCircle size={18} color="var(--mac-orange)" style={{ flexShrink: 0, marginTop: 2 }} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Finish setting up your MICRO</div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Finish setting up your Roundtable_VO</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {missing.map((m) => (
               <button key={m.label} className="btn btn-secondary" onClick={() => m.route ? onGoto(m.route) : null} style={{ fontSize: 11, padding: "3px 10px" }} data-testid={`setup-reminder-${m.label.replace(/\s/g, "-").toLowerCase()}`}>

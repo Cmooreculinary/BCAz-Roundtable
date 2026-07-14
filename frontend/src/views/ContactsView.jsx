@@ -47,7 +47,7 @@ export default function ContactsView({ onAdd, onInvite }) {
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-      <HelpTip section="contacts" text="Everyone you know. Green check = already on MICRO. Blue button = invite them." />
+      <HelpTip section="contacts" text="Everyone you know. Green check = already on Roundtable_VO. Blue button = invite them." />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 10 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Contacts</h1>
         <div style={{ display: "flex", gap: 8 }}>
@@ -95,12 +95,12 @@ export default function ContactsView({ onAdd, onInvite }) {
         <EmptyState icon={<UserPlus size={28} />} title="No contacts yet" subtitle="Add people to grow your network." action={<button className="btn btn-primary" onClick={onAdd} data-testid="contacts-empty-add">Add Contact</button>} testId="contacts-empty" />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <Section title={`On MICRO (${onApp.length})`} emptyMsg="Nobody from your contacts is on yet." color="var(--mac-green)">
+          <Section title={`On Roundtable_VO (${onApp.length})`} emptyMsg="Nobody from your contacts is on yet." color="var(--mac-green)">
             {onApp.map((c) => (
               <Row key={c.id} contact={c} isMember onDelete={() => deleteContact(c)} />
             ))}
           </Section>
-          <Section title={`Not on MICRO (${offApp.length})`} emptyMsg="Everyone's already in." color="var(--mac-blue)">
+          <Section title={`Not on Roundtable_VO (${offApp.length})`} emptyMsg="Everyone's already in." color="var(--mac-blue)">
             {offApp.map((c) => (
               <Row key={c.id} contact={c} onInvite={onInvite} smsEnabled={bridgeStatus.sms_configured} emailEnabled={bridgeStatus.email_configured} onSms={(contact) => setSmsTarget(contact)} onDelete={() => deleteContact(c)} />
             ))}

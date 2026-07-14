@@ -52,7 +52,7 @@ def test_user_auth():
     s.headers.update({"Content-Type": "application/json"})
     
     # Try to register, if already exists, login
-    email = "phase5_test_user@micro.app"
+    email = "phase5_test_user@roundtable.app"
     password = TEST_PASSWORD
     name = "Phase5 Test User"
     
@@ -204,7 +204,7 @@ class TestBridges:
         """POST /api/bridges/sms should return 503 when Twilio not configured"""
         resp = admin_auth.post(f"{BASE_URL}/api/bridges/sms", json={
             "phone": "+15551234567",
-            "message": "Test message from MICRO"
+            "message": "Test message from Roundtable_VO"
         })
         assert resp.status_code == 503, f"Expected 503 for unconfigured SMS, got {resp.status_code}"
         data = resp.json()
@@ -218,7 +218,7 @@ class TestBridges:
         resp = admin_auth.post(f"{BASE_URL}/api/bridges/email", json={
             "to_email": "test@example.com",
             "subject": "Test Subject",
-            "body": "Test body from MICRO"
+            "body": "Test body from Roundtable_VO"
         })
         assert resp.status_code == 503, f"Expected 503 for unconfigured email, got {resp.status_code}"
         data = resp.json()

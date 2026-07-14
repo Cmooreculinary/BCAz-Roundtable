@@ -24,7 +24,7 @@ export default function BadgeUnlock({ unlock, onClose }) {
   if (!unlock) return null;
   const tier = TIERS.find((t) => t.count === unlock.tier_count) || TIERS[0];
 
-  const shareText = `I just earned the "${tier.name}" badge on MICRO — where my people gather. Come join us!`;
+  const shareText = `I just earned the "${tier.name}" badge on Roundtable_VO — where my people gather. Come join us!`;
   const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
 
   const generateShare = async () => {
@@ -41,7 +41,7 @@ export default function BadgeUnlock({ unlock, onClose }) {
       const url = `${appOrigin}/join/${inv.code}`;
       const body = `${shareText} ${url}`;
       if (navigator.share) {
-        try { await navigator.share({ title: "MICRO", text: shareText, url }); }
+        try { await navigator.share({ title: "Roundtable_VO", text: shareText, url }); }
         catch (err) { logger.error("Share cancelled:", err); }
       } else {
         try { await navigator.clipboard.writeText(body); toast.success("Invite copied — paste it anywhere"); }

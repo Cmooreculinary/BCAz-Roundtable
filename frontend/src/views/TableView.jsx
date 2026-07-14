@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { api, formatApiErrorDetail } from "../lib/api";
-import TableSceneViz from "../components/rt/TableSceneViz";
+import RoundTableViz from "../components/rt/RoundTableViz";
 import EmptyState from "../components/rt/EmptyState";
 import HelpTip from "../components/rt/HelpTip";
 import { Share2, UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare, HeartHandshake, Armchair, Eye, Trash2, Settings2 } from "lucide-react";
@@ -213,7 +213,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 14 }} className="table-grid-2col">
         {/* Left: table visualization */}
         <div className="card" style={{ padding: 0, overflow: "hidden", minHeight: 560, position: "relative" }}>
-          <TableSceneViz
+          <RoundTableViz
             table={table}
             seats={seats}
             currentUserId={user?.id}

@@ -55,8 +55,8 @@ export default function InviteModal({ tables = [], defaultTable, onClose }) {
                 <button className="btn btn-secondary" onClick={copy} data-testid="invite-copy"><Copy size={13} /></button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
-                <a className="btn btn-secondary" href={`sms:?body=Join my MICRO table with code ${code}`} data-testid="invite-sms"><MessageSquare size={13} /> SMS</a>
-                <a className="btn btn-secondary" href={`mailto:?subject=Come to my MICRO table&body=Join with code: ${code}`} data-testid="invite-email"><Mail size={13} /> Email</a>
+                <a className="btn btn-secondary" href={`sms:?body=Join my Roundtable_VO table with code ${code}`} data-testid="invite-sms"><MessageSquare size={13} /> SMS</a>
+                <a className="btn btn-secondary" href={`mailto:?subject=Come to my Roundtable_VO table&body=Join with code: ${code}`} data-testid="invite-email"><Mail size={13} /> Email</a>
               </div>
             </div>
           )}

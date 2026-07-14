@@ -23,27 +23,27 @@ import asyncio
 import json as _json
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("micro")
+logger = logging.getLogger("roundtable")
 
 # ---------- Config ----------
-DB_NAME = os.environ.get("DB_NAME", "micro")
+DB_NAME = os.environ.get("DB_NAME", "roundtable_vo")
 SQLITE_PATH = os.environ.get("SQLITE_PATH", str(ROOT_DIR / "data" / f"{DB_NAME}.sqlite3"))
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGORITHM = "HS256"
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@micro.app")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "micro2026")
-APP_NAME = os.environ.get("APP_NAME", "micro")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@roundtable.app")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "roundtable2026")
+APP_NAME = os.environ.get("APP_NAME", "Roundtable_VO")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
-VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL", "mailto:admin@micro.app")
+VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL", "mailto:admin@roundtable.app")
 
 # SMS/Email bridge (optional, uses Twilio and Resend)
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
 TWILIO_FROM_NUMBER = os.environ.get("TWILIO_FROM_NUMBER")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
-RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "noreply@micro.app")
+RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "noreply@roundtable.app")
 
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()]
 
@@ -297,7 +297,7 @@ async def _handle_call_start(user_id: str, msg: dict):
         await ws_manager.send_to_user(target_user, incoming_payload)
         if not ws_manager.is_online(target_user):
             await send_push_to_user(target_user, f"Incoming {call_type} call", f"{caller_info.get('name', 'Someone')} is calling you", {"type": "call", "call_id": call_id})
-            await send_auto_sms_if_offline(target_user, f"{caller_info.get('name', 'Someone')} tried to call you ({call_type}). Open MICRO to call back!")
+            await send_auto_sms_if_offline(target_user, f"{caller_info.get('name', 'Someone')} tried to call you ({call_type}). Open Roundtable_VO to call back!")
     elif table_id:
         await ws_manager.broadcast_to_table(table_id, incoming_payload, exclude_user=user_id)
 
@@ -590,7 +590,7 @@ class WalkiePingIn(BaseModel):
 
 
 # ---------- App ----------
-app = FastAPI(title="MICRO API")
+app = FastAPI(title="Roundtable_VO API")
 api = APIRouter(prefix="/api")
 
 
@@ -1491,22 +1491,22 @@ async def create_invite(payload: InviteIn, user: dict = Depends(get_current_user
     # Send transactional invite email if recipient_email provided and Resend configured
     if payload.recipient_email and RESEND_API_KEY:
         t = await db.tables.find_one({"id": payload.table_id}, {"_id": 0})
-        table_name = t["name"] if t else "a MICRO table"
+        table_name = t["name"] if t else "a Roundtable_VO table"
         try:
             import httpx
-            join_url = f"{CORS_ORIGINS[0] if CORS_ORIGINS else 'https://micro.app'}/join/{code}"
+            join_url = f"{CORS_ORIGINS[0] if CORS_ORIGINS else 'https://roundtable-vo.app'}/join/{code}"
             async with httpx.AsyncClient() as client:
                 await client.post(
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
                     json={
-                        "from": f"MICRO <{RESEND_FROM_EMAIL}>",
+                        "from": f"Roundtable_VO <{RESEND_FROM_EMAIL}>",
                         "to": [payload.recipient_email],
-                        "subject": f"{user['name']} invited you to {table_name} on MICRO",
+                        "subject": f"{user['name']} invited you to {table_name} on Roundtable_VO",
                         "html": (
                             f"<div style='font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:480px;margin:0 auto;padding:32px;'>"
                             f"<h2 style='margin:0 0 12px;'>You're invited!</h2>"
-                            f"<p style='color:#555;line-height:1.6;'>{user['name']} wants you to join <strong>{table_name}</strong> on MICRO — where your people gather.</p>"
+                            f"<p style='color:#555;line-height:1.6;'>{user['name']} wants you to join <strong>{table_name}</strong> on Roundtable_VO — where your people gather.</p>"
                             f"<a href='{join_url}' style='display:inline-block;padding:14px 28px;background:#007AFF;color:white;text-decoration:none;border-radius:10px;font-weight:600;margin:20px 0;'>Join the Table</a>"
                             f"<p style='color:#999;font-size:13px;'>Or use invite code: <strong>{code}</strong></p>"
                             f"</div>"
@@ -1837,7 +1837,7 @@ async def send_auto_sms_if_offline(user_id: str, message: str):
                 data={
                     "From": TWILIO_FROM_NUMBER,
                     "To": user["phone"],
-                    "Body": f"[MICRO] {message}",
+                    "Body": f"[Roundtable_VO] {message}",
                 },
             )
             if resp.status_code < 300:
@@ -1888,7 +1888,7 @@ async def send_sms_bridge(payload: SMSBridgeIn, user: dict = Depends(get_current
                 data={
                     "From": TWILIO_FROM_NUMBER,
                     "To": payload.phone,
-                    "Body": f"[MICRO] {user['name']}: {payload.message}",
+                    "Body": f"[Roundtable_VO] {user['name']}: {payload.message}",
                 },
             )
             if resp.status_code >= 400:
@@ -1924,10 +1924,10 @@ async def send_email_bridge(payload: EmailBridgeIn, user: dict = Depends(get_cur
                 "https://api.resend.com/emails",
                 headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
                 json={
-                    "from": f"MICRO <{RESEND_FROM_EMAIL}>",
+                    "from": f"Roundtable_VO <{RESEND_FROM_EMAIL}>",
                     "to": [payload.to_email],
                     "subject": payload.subject,
-                    "html": f"<p>{payload.body}</p><hr><p><small>Sent via MICRO by {user['name']}</small></p>",
+                    "html": f"<p>{payload.body}</p><hr><p><small>Sent via Roundtable_VO by {user['name']}</small></p>",
                 },
             )
             resp.raise_for_status()
@@ -2172,7 +2172,7 @@ async def clear_all_notifications(user: dict = Depends(get_current_user)):
 # ---------- Health ----------
 @api.get("/")
 async def root():
-    return {"service": "MICRO API", "status": "ok"}
+    return {"service": "Roundtable_VO API", "status": "ok"}
 
 
 # ---------- AI Smart Suggestions ----------
@@ -2213,7 +2213,7 @@ async def _build_suggest_prompt(table: dict, table_id: str) -> dict:
     guidance = PURPOSE_GUIDANCE.get(purpose, PURPOSE_GUIDANCE["other"])
     today = datetime.now(timezone.utc).date().isoformat()
     system = (
-        "You are the 'MICRO' scheduling helper. You propose warm, concrete, low-pressure event ideas for real-world groups. "
+        "You are the 'Roundtable_VO' scheduling helper. You propose warm, concrete, low-pressure event ideas for real-world groups. "
         "Return strictly valid JSON only — no commentary. Format: "
         '{"suggestions":[{"title":"","date":"YYYY-MM-DD","time":"HH:MM","description":"","reason":""}]}'
         " Exactly 3 suggestions. Dates must be in the future (after today). Use 24-hour time."

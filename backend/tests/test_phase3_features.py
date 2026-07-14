@@ -323,7 +323,7 @@ class TestAISuggestEvents:
         new_client.headers.update({"Content-Type": "application/json"})
         
         # Create a new user who is NOT a member of the test table
-        unique_email = f"test_nonmember_{int(time.time())}@micro.app"
+        unique_email = f"test_nonmember_{int(time.time())}@roundtable.app"
         reg_resp = new_client.post(f"{BASE_URL}/api/auth/register", json={
             "email": unique_email,
             "password": TEST_PASSWORD,

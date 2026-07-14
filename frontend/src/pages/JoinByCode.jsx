@@ -80,7 +80,7 @@ export default function JoinByCode() {
               </div>
               <h1 style={{ fontSize: 26, fontWeight: 700, margin: "4px 0 6px", letterSpacing: "-0.02em" }}>{preview.table.name}</h1>
               <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                <b>{preview.inviter.name}</b> invited you to their MICRO table
+                <b>{preview.inviter.name}</b> invited you to their Roundtable_VO table
               </div>
             </div>
 

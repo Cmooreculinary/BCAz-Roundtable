@@ -13,7 +13,7 @@ export const ROOMS = [
 ];
 
 export const TABLES = [
-  { id: "mahogany", name: "Mahogany Table", color: "#6b3a1f", wood: "linear-gradient(135deg, #8b5e3c 0%, #6b3a1f 50%, #4a2510 100%)" },
+  { id: "mahogany", name: "Mahogany Round Table", color: "#6b3a1f", wood: "linear-gradient(135deg, #8b5e3c 0%, #6b3a1f 50%, #4a2510 100%)" },
   { id: "executive", name: "Executive Board Table", color: "#2c2c2e", wood: "linear-gradient(135deg, #3a3a3c 0%, #2c2c2e 50%, #1c1c1e 100%)" },
   { id: "family", name: "Family Dinner Table", color: "#a47a4c", wood: "linear-gradient(135deg, #c9a274 0%, #a47a4c 50%, #7a4f2b 100%)" },
   { id: "drafting", name: "Drafting / Planning", color: "#4a6741", wood: "linear-gradient(135deg, #5a7a51 0%, #4a6741 50%, #3a5431 100%)" },

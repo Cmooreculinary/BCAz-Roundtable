@@ -1,4 +1,4 @@
-/* MICRO — Service Worker (PWA + Push Notifications) */
+/* Roundtable_VO — Service Worker (PWA + Push Notifications) */
 const CACHE_VERSION = "rt-v2";
 
 self.addEventListener("install", (e) => {
@@ -22,7 +22,7 @@ self.addEventListener("fetch", (event) => {
 
 // ── Push Notifications ─────────────────────────────────
 self.addEventListener("push", (event) => {
-  let data = { title: "MICRO", body: "You have a new notification" };
+  let data = { title: "Roundtable_VO", body: "You have a new notification" };
   try {
     if (event.data) data = event.data.json();
   } catch { /* use defaults */ }
@@ -38,7 +38,7 @@ self.addEventListener("push", (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title || "MICRO", options)
+    self.registration.showNotification(data.title || "Roundtable_VO", options)
   );
 });
 

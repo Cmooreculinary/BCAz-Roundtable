@@ -6,8 +6,8 @@ import { Armchair } from "lucide-react";
 export default function Login() {
   const { login } = useAuth();
   const nav = useNavigate();
-  const [email, setEmail] = useState("admin@micro.app");
-  const [password, setPassword] = useState("micro2026");
+  const [email, setEmail] = useState("admin@roundtable.app");
+  const [password, setPassword] = useState("roundtable2026");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -46,7 +46,7 @@ export default function Login() {
             <Armchair size={24} />
           </div>
           <div>
-            <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em" }}>MICRO</div>
+            <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em" }}>Roundtable_VO</div>
             <div className="text-mute" style={{ fontSize: 12 }}>Where your people gather.</div>
           </div>
         </div>

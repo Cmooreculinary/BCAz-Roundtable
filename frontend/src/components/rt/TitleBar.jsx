@@ -24,7 +24,7 @@ export default function TitleBar({ notificationsCount = 0, onOpenNotifications, 
       <button className="btn btn-ghost mobile-only" onClick={onToggleSidebar} data-testid="hamburger-btn" style={{ marginLeft: 12, padding: 6 }}>
         <Menu size={16} />
       </button>
-      <div className="title-bar-title">MICRO</div>
+      <div className="title-bar-title">Roundtable_VO</div>
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
         <button className="btn btn-ghost" onClick={toggleTheme} title="Toggle theme" data-testid="theme-toggle-btn" style={{ padding: 6 }}>
           {dark ? <Sun size={16} /> : <Moon size={16} />}

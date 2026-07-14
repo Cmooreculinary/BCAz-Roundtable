@@ -1,5 +1,5 @@
 """
-MICRO Phase 2 WebSocket Tests
+Roundtable_VO Phase 2 WebSocket Tests
 Tests WebSocket endpoint, presence, live broadcasts, and real-time features
 """
 import pytest
@@ -321,7 +321,7 @@ class TestReferralJoinedBroadcast:
         
         # Create new user
         new_user_session = requests.Session()
-        unique_email = f"test_ws_join_{int(time.time())}@micro.app"
+        unique_email = f"test_ws_join_{int(time.time())}@roundtable.app"
         reg_resp = new_user_session.post(f"{BASE_URL}/api/auth/register", json={
             "email": unique_email,
             "password": TEST_PASSWORD,

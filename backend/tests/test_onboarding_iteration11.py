@@ -23,7 +23,7 @@ class TestOnboardingFlow:
         """Setup test session"""
         self.session = requests.Session()
         self.session.headers.update({"Content-Type": "application/json"})
-        self.test_email = f"TEST_onboard_{int(time.time())}@micro.app"
+        self.test_email = f"TEST_onboard_{int(time.time())}@roundtable.app"
         self.test_password = TEST_PASSWORD
         self.test_name = "Test Onboard User"
         yield
@@ -58,7 +58,7 @@ class TestOnboardingFlow:
         """Test updating user profile (name, color, avatar_url) during onboarding"""
         # Register new user
         response = self.session.post(f"{BASE_URL}/api/auth/register", json={
-            "email": f"TEST_profile_{int(time.time())}@micro.app",
+            "email": f"TEST_profile_{int(time.time())}@roundtable.app",
             "password": self.test_password,
             "name": "Initial Name"
         })
@@ -83,7 +83,7 @@ class TestOnboardingFlow:
         """Test updating phone number and auto_sms setting"""
         # Register new user
         response = self.session.post(f"{BASE_URL}/api/auth/register", json={
-            "email": f"TEST_phone_{int(time.time())}@micro.app",
+            "email": f"TEST_phone_{int(time.time())}@roundtable.app",
             "password": self.test_password,
             "name": "Phone Test User"
         })
@@ -106,7 +106,7 @@ class TestOnboardingFlow:
         """Test completing onboarding by setting onboarded=true"""
         # Register new user
         response = self.session.post(f"{BASE_URL}/api/auth/register", json={
-            "email": f"TEST_complete_{int(time.time())}@micro.app",
+            "email": f"TEST_complete_{int(time.time())}@roundtable.app",
             "password": self.test_password,
             "name": "Complete Test User"
         })
@@ -144,7 +144,7 @@ class TestTableCreationDuringOnboarding:
         self.session.headers.update({"Content-Type": "application/json"})
         
         # Register new user
-        self.test_email = f"TEST_table_{int(time.time())}@micro.app"
+        self.test_email = f"TEST_table_{int(time.time())}@roundtable.app"
         response = self.session.post(f"{BASE_URL}/api/auth/register", json={
             "email": self.test_email,
             "password": TEST_PASSWORD,
@@ -196,7 +196,7 @@ class TestInviteCodeDuringOnboarding:
         self.session.headers.update({"Content-Type": "application/json"})
         
         # Register new user
-        self.test_email = f"TEST_invite_{int(time.time())}@micro.app"
+        self.test_email = f"TEST_invite_{int(time.time())}@roundtable.app"
         response = self.session.post(f"{BASE_URL}/api/auth/register", json={
             "email": self.test_email,
             "password": TEST_PASSWORD,

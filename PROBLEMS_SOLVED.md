@@ -1,4 +1,4 @@
-# Problems Solved by MICRO
+# Problems Solved by Roundtable_VO
 
 *Content to be provided by the founder. This file documents the 65 problems this platform solves, organized by category.*
 

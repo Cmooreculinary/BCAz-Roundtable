@@ -1,4 +1,4 @@
-# MICRO — PRIMARY VERSION [Iteration 18a | SQLite Full-Stack]
+# Roundtable_VO — PRIMARY VERSION [Iteration 18a | SQLite Full-Stack]
 
 > **This is the current primary build.** Full-stack React + FastAPI + SQLite with real WebRTC, Twilio SMS, Web Push, scene-based table environments, and the Gather Experience investor demo.
 
@@ -14,7 +14,7 @@
 | **Iteration** | 18a |
 | **Platform** | Render-ready as of 2026-05-21 |
 | **Stack** | React 19 + FastAPI + SQLite |
-| **Other versions** | Separate Cloudflare/Hono edition kept outside this stack |
+| **Other versions** | `round-table` repo = Cloudflare/Hono edition (separate stack) |
 
 ---
 
@@ -61,7 +61,7 @@ The `render.yaml` at the repo root defines both the backend (Python web service)
 ## Project Structure
 
 ```
-MICRO/
+Roundtable_VO/
 ├── render.yaml                    # Render Blueprint (frontend + backend)
 ├── backend/
 │   ├── server.py                  # FastAPI app, Iteration 18a
@@ -71,7 +71,7 @@ MICRO/
 ├── frontend/
 │   ├── src/
 │   │   ├── views/                 # Portal, TableView, GatherExperience, etc.
-│   │   ├── components/            # TableSceneViz, Sidebar, modals
+│   │   ├── components/            # RoundTableViz, Sidebar, modals
 │   │   └── lib/                   # scenes.js, webrtc.js, realtime.js
 │   ├── .env.example
 │   └── package.json

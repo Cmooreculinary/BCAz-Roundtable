@@ -73,7 +73,7 @@ export default function GatherExperience() {
         backdropFilter: "blur(20px)",
       }}>
         <a href="/" style={{ color: "rgba(255,255,255,0.5)", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-          <ArrowLeft size={14} /> Back to MICRO
+          <ArrowLeft size={14} /> Back to Roundtable_VO
         </a>
         {partnerName && (
           <div data-testid="gather-partner-badge" style={{
@@ -298,11 +298,11 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
       { delay: 3000, action: () => {} },
       { delay: 3000, action: () => {} },
       { delay: 2500, action: () => autoSeat() },
-      { delay: 3000, action: () => setChatMessages([{ from: "Chris", text: "Tonight we are looking at the launch path for MICRO and The Gather App.", color: "#007AFF" }]) },
+      { delay: 3000, action: () => setChatMessages([{ from: "Chris", text: "Tonight we are looking at the launch path for Roundtable_VO and The Gather App.", color: "#007AFF" }]) },
       { delay: 4000, action: () => setChatMessages((p) => [...p, { from: "Roy", text: "This makes the product immediately understandable. People can see the gathering before they use it.", color: "#FF9500" }]) },
       { delay: 3500, action: () => setChatMessages((p) => [...p, { from: "Chef Simone", text: "Chef Table service is staged and ready.", color: "#FFCC00" }]) },
       { delay: 3500, action: () => setChatMessages((p) => [...p, { from: "PM Lee", text: "Action items: finalize naming, prepare investor demo, define v1 feature set.", color: "#5AC8FA" }]) },
-      { delay: 3000, action: () => setAiSummary("MICRO demo complete. Key value: configurable rooms, table settings, seated avatars, ambiance, service layer, and group tools in one visual gathering space.") },
+      { delay: 3000, action: () => setAiSummary("Roundtable_VO demo complete. Key value: configurable rooms, table settings, seated avatars, ambiance, service layer, and group tools in one visual gathering space.") },
       { delay: 4000, action: () => {} },
     ];
 
@@ -318,7 +318,7 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
 
   const SIM_LABELS = [
     'Host creates "Partner Strategy Dinner"',
-    "Selects Skyline Executive Room + Mahogany Table",
+    "Selects Skyline Executive Room + Mahogany Round Table",
     "Sets formal dinner with notebooks and pens",
     "Chooses Warm Dinner lighting + Soft Jazz",
     "Auto-seating avatars...",
@@ -327,7 +327,7 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
     "Chef Simone confirms service...",
     "PM Lee logs action items...",
     "AI Summary generating...",
-    "MICRO: Choose the room. Set the table. Seat the people. Shape the gathering.",
+    "Roundtable_VO: Choose the room. Set the table. Seat the people. Shape the gathering.",
   ];
 
   return (
@@ -376,7 +376,7 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
             <span style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", marginTop: 4 }}>{config.tabletop.name}</span>
           </div>
 
-          {/* Seated avatars encircling the table */}
+          {/* Seated avatars around table */}
           {seated.map((av, i) => {
             const angle = (i * (360 / Math.max(seated.length, 1)) - 90) * (Math.PI / 180);
             const x = 150 * Math.cos(angle);
@@ -485,7 +485,7 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
           background: "rgba(255,255,255,0.03)", borderRadius: 20,
           border: "1px solid rgba(255,255,255,0.08)",
         }}>
-          <h2 style={{ fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>MICRO</h2>
+          <h2 style={{ fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Roundtable_VO</h2>
           <p style={{ fontSize: 16, color: "rgba(255,255,255,0.6)", marginTop: 8, lineHeight: 1.6 }}>
             Choose the room. Set the table. Seat the people. Shape the gathering.
           </p>
@@ -501,7 +501,7 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
 function ExploreGrid() {
   return (
     <div>
-      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>What MICRO Can Become</h2>
+      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>What Roundtable_VO Can Become</h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
         {EXPLORE_CARDS.map((c) => (
           <div key={c.name} style={{
@@ -584,7 +584,7 @@ function DemoNotes() {
           <li>AI summarization (GPT/Claude)</li>
           <li>Push notifications & SMS bridges</li>
         </ul>
-        <p style={{ marginTop: 16, color: "#FFCC00", fontWeight: 600 }}>MICRO is where your people gather. This demo proves the vision is real.</p>
+        <p style={{ marginTop: 16, color: "#FFCC00", fontWeight: 600 }}>Roundtable_VO is where your people gather. This demo proves the vision is real.</p>
       </div>
     </div>
   );
