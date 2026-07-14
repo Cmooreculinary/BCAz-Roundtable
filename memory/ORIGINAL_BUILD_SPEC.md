@@ -1,6 +1,6 @@
 > **Archival reference** — This is the original "Round Table" build specification, preserved from the Cloudflare/Hono prototype repository (`round-table`). Architecture and deployment sections describe that edition, not the current FastAPI + SQLite primary build; see `PRD.md` for current state. Kept for the product vision, onboarding, design-system, and security specs.
 
-# ROUND TABLE - Emergent Build Prompt
+# ROUND TABLE - Original Build Specification
 
 ## Production-Ready Build Specification
 
@@ -898,7 +898,7 @@ round-table/
 +-- README.md
 +-- EXPLAINER.md                # Detailed product explainer
 +-- PROBLEMS_SOLVED.md          # 65 problems solved
-+-- EMERGENT_PROMPT.md          # This document
++-- ORIGINAL_BUILD_SPEC.md     # This document
 ```
 
 ---
