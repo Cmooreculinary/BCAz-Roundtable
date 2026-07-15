@@ -1,7 +1,12 @@
 import { useEffect, useRef, useCallback } from "react";
 import logger from "./logger";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+function normalizeBackendUrl(value) {
+  const configured = (value || "http://localhost:8001").trim().replace(/\/$/, "");
+  return /^https?:\/\//i.test(configured) ? configured : `https://${configured}`;
+}
+
+const BACKEND_URL = normalizeBackendUrl(process.env.REACT_APP_BACKEND_URL);
 
 // Simple shared event bus so any component can subscribe to live events
 const listeners = new Set();

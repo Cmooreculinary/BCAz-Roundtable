@@ -39,6 +39,7 @@
 
 # Required env vars:
 # SQLITE_PATH, JWT_SECRET, CORS_ORIGINS, UPLOAD_ROOT
+# Set ADMIN_PASSWORD once to seed the initial administrator; no default password exists.
 # Optional: VAPID keys, TWILIO creds, ANTHROPIC_API_KEY (Smart Suggestions)
 ```
 

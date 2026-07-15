@@ -11,5 +11,6 @@ pywebpush==2.3.0
 py-vapid==1.9.4
 anthropic==0.40.0
 httpx==0.28.1
+dnspython==2.8.0
 requests==2.33.1
 email-validator==2.3.0

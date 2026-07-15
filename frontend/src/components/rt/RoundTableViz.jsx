@@ -38,7 +38,7 @@ const TYPE_COLOR = {
 export default function RoundTableViz({ table, seats = [], currentUserId, onClaimSeat, onLeaveSeat, onMemberClick }) {
   const scene = useMemo(() => resolveScene(table?.scene), [table?.scene]);
   const live = !!table?.active;
-  const members = table?.members || [];
+  const members = useMemo(() => table?.members || [], [table?.members]);
   const items = table?.items || [];
   const seatCount = seatCountForTable(scene.table.id);
 

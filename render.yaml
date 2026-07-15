@@ -5,6 +5,8 @@ services:
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    plan: starter
+    healthCheckPath: /api/
     disk:
       name: roundtable-vo-data
       mountPath: /opt/data
@@ -20,6 +22,10 @@ services:
         value: Roundtable_VO
       - key: JWT_SECRET
         generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@roundtable.app
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: CORS_ORIGINS
         value: https://roundtable-vo-frontend.onrender.com
       - key: VAPID_PRIVATE_KEY
@@ -41,11 +47,15 @@ services:
     name: roundtable-vo-frontend
     runtime: static
     rootDir: frontend
-    buildCommand: npm install --legacy-peer-deps --package-lock=false && npm run build
+    buildCommand: npm ci --legacy-peer-deps && npm run build
     staticPublishPath: build
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: REACT_APP_BACKEND_URL
         fromService:
           name: roundtable-vo-backend
           type: web
-          property: host
+          envVarKey: RENDER_EXTERNAL_HOSTNAME

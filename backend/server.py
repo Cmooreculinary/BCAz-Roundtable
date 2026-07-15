@@ -30,8 +30,8 @@ DB_NAME = os.environ.get("DB_NAME", "roundtable_vo")
 SQLITE_PATH = os.environ.get("SQLITE_PATH", str(ROOT_DIR / "data" / f"{DB_NAME}.sqlite3"))
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGORITHM = "HS256"
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@roundtable.app")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "roundtable2026")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@roundtable.app").strip().lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 APP_NAME = os.environ.get("APP_NAME", "Roundtable_VO")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
@@ -45,7 +45,16 @@ TWILIO_FROM_NUMBER = os.environ.get("TWILIO_FROM_NUMBER")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "noreply@roundtable.app")
 
-CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()]
+CORS_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.environ.get(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000",
+    ).split(",")
+    if origin.strip()
+]
+if "*" in CORS_ORIGINS:
+    raise RuntimeError("CORS_ORIGINS must list explicit origins when credentials are enabled")
 
 UPLOAD_ROOT = Path(os.environ.get("UPLOAD_ROOT", str(ROOT_DIR / "data" / "uploads")))
 
@@ -620,9 +629,10 @@ async def startup():
     # Iteration 18 — table seats: one seat per (table, seat_index); a user holds at most one seat per table
     await db.table_seats.create_index([("table_id", 1), ("seat_index", 1)], unique=True)
     await db.table_seats.create_index([("table_id", 1), ("user_id", 1)], unique=True)
-    # Seed admin
+    # Seed the initial administrator only when a deployment provides a password.
+    # Existing passwords are never overwritten during application startup.
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
-    if not existing:
+    if ADMIN_PASSWORD and not existing:
         admin = {
             "id": new_id(),
             "email": ADMIN_EMAIL,
@@ -637,9 +647,8 @@ async def startup():
         }
         await db.users.insert_one(admin)
         logger.info("Admin user seeded.")
-    elif not verify_password(ADMIN_PASSWORD, existing.get("password_hash", "")):
-        await db.users.update_one({"email": ADMIN_EMAIL}, {"$set": {"password_hash": hash_password(ADMIN_PASSWORD)}})
-        logger.info("Admin password updated from .env.")
+    elif not ADMIN_PASSWORD:
+        logger.info("ADMIN_PASSWORD is not set; automatic admin seeding is disabled.")
     # Storage
     init_storage()
     # Start event reminder background task
@@ -2270,7 +2279,6 @@ def _parse_suggestions(raw: str, color: str) -> list:
 
 
 # ---------- WebSocket ----------
-@app.websocket("/api/ws")
 async def _authenticate_ws(websocket: WebSocket) -> str:
     """Authenticate WebSocket connection. Returns user_id or raises."""
     token = websocket.cookies.get("rt_access") or websocket.query_params.get("token")
@@ -2353,7 +2361,7 @@ app.include_router(api)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
