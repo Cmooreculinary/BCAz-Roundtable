@@ -10,9 +10,11 @@ import bcrypt
 import jwt
 import secrets
 import string
+import re
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Literal
+from urllib.parse import quote
 
 from fastapi import FastAPI, APIRouter, Request, Response, HTTPException, Depends, UploadFile, File, Header, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response as FastResponse
@@ -57,6 +59,9 @@ if "*" in CORS_ORIGINS:
     raise RuntimeError("CORS_ORIGINS must list explicit origins when credentials are enabled")
 
 UPLOAD_ROOT = Path(os.environ.get("UPLOAD_ROOT", str(ROOT_DIR / "data" / "uploads")))
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))
+if MAX_UPLOAD_BYTES <= 0:
+    raise RuntimeError("MAX_UPLOAD_BYTES must be greater than zero")
 
 # ---------- DB ----------
 sqlite_client = AsyncSQLiteClient(SQLITE_PATH)
@@ -1118,9 +1123,25 @@ async def list_prayers(table_id: str, user: dict = Depends(get_current_user)):
 # ---------- File upload ----------
 @api.post("/upload")
 async def upload_file(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
-    ext = (file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin").lower()
+    raw_ext = (file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin").lower()
+    ext = re.sub(r"[^a-z0-9]", "", raw_ext)[:16] or "bin"
     path = f"{APP_NAME}/uploads/{user['id']}/{new_id()}.{ext}"
-    data = await file.read()
+    chunks = []
+    total_size = 0
+    while chunk := await file.read(1024 * 1024):
+        total_size += len(chunk)
+        if total_size > MAX_UPLOAD_BYTES:
+            limit_label = (
+                f"{MAX_UPLOAD_BYTES // (1024 * 1024)} MiB"
+                if MAX_UPLOAD_BYTES >= 1024 * 1024
+                else f"{MAX_UPLOAD_BYTES} bytes"
+            )
+            raise HTTPException(
+                status_code=413,
+                detail=f"File exceeds the {limit_label} upload limit",
+            )
+        chunks.append(chunk)
+    data = b"".join(chunks)
     content_type = file.content_type or "application/octet-stream"
     result = put_object(path, data, content_type)
     record = {
@@ -1139,12 +1160,44 @@ async def upload_file(file: UploadFile = File(...), user: dict = Depends(get_cur
 
 
 @api.get("/files/{storage_path:path}")
-async def download_file(storage_path: str, user: dict = Depends(get_current_user)):
+async def download_file(
+    storage_path: str,
+    download: bool = False,
+    user: dict = Depends(get_current_user),
+):
     record = await db.files.find_one({"storage_path": storage_path, "is_deleted": False}, {"_id": 0})
     if not record:
         raise HTTPException(status_code=404, detail="File not found")
+
+    if record.get("uploaded_by") != user["id"]:
+        escaped_path = re.escape(storage_path)
+        items = await db.shared_items.find(
+            {
+                "url": {"$regex": rf"(?:^|/files/){escaped_path}$"},
+                "deleted_at": {"$exists": False},
+            },
+            {"_id": 0},
+        ).to_list(500)
+        has_access = False
+        for item in items:
+            membership = await db.table_members.find_one(
+                {"table_id": item["table_id"], "user_id": user["id"]},
+                {"_id": 0},
+            )
+            if membership:
+                has_access = True
+                break
+        if not has_access:
+            raise HTTPException(status_code=403, detail="You do not have access to this file")
+
     data, content_type = get_object(storage_path)
-    return FastResponse(content=data, media_type=record.get("content_type", content_type))
+    disposition = "attachment" if download else "inline"
+    filename = quote(record.get("original_filename") or "download")
+    return FastResponse(
+        content=data,
+        media_type=record.get("content_type", content_type),
+        headers={"Content-Disposition": f"{disposition}; filename*=UTF-8''{filename}"},
+    )
 
 
 # ---------- Messages ----------
