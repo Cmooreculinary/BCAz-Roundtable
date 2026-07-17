@@ -1,0 +1,75 @@
+name: Launch Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      ADMIN_EMAIL: admin@roundtable.app
+      ADMIN_PASSWORD: RoundtableTest2026
+      CORS_ORIGINS: https://localhost:3000
+      JWT_SECRET: ci-only-jwt-secret-at-least-32-bytes
+      MAX_UPLOAD_BYTES: "1024"
+      REACT_APP_BACKEND_URL: https://localhost:8001
+      SQLITE_PATH: /tmp/roundtable-ci.sqlite3
+      TEST_PASSWORD: RoundtableMember2026
+      TEST_USER_PASSWORD: RoundtableMember2026
+      UPLOAD_ROOT: /tmp/roundtable-ci-uploads
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt pytest==9.0.2
+      - name: Start local HTTPS API
+        run: |
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout /tmp/roundtable-ci.key -out /tmp/roundtable-ci.crt -days 1 \
+            -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+          uvicorn server:app --host 127.0.0.1 --port 8001 \
+            --ssl-keyfile /tmp/roundtable-ci.key \
+            --ssl-certfile /tmp/roundtable-ci.crt \
+            >/tmp/roundtable-ci-server.log 2>&1 &
+          for attempt in {1..20}; do
+            curl --cacert /tmp/roundtable-ci.crt --fail --silent https://localhost:8001/api/ && exit 0
+            sleep 1
+          done
+          cat /tmp/roundtable-ci-server.log
+          exit 1
+      - name: Run backend launch tests
+        env:
+          PYTHONPATH: .
+          REQUESTS_CA_BUNDLE: /tmp/roundtable-ci.crt
+        run: python -m pytest tests/test_iteration_18.py tests/test_roundtable_api.py tests/test_file_security.py -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      REACT_APP_BACKEND_URL: roundtable-vo-backend.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --include=dev
+      - run: npm test -- --watchAll=false --runInBand
+        env:
+          CI: "true"
+      - run: npm run build

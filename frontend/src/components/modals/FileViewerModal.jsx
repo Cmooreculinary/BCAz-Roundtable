@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { X, Download, Play, Pause, ChevronLeft, ChevronRight, Monitor, MonitorOff } from "lucide-react";
 import { useRTEvent, sendWS } from "../../lib/realtime";
+import { buildFileUrl } from "../../lib/api";
 import { toast } from "sonner";
-
-const API = process.env.REACT_APP_BACKEND_URL;
 
 function fileCategory(item) {
   const mime = (item.mime_type || "").toLowerCase();
@@ -16,7 +15,8 @@ function fileCategory(item) {
 
 export default function FileViewerModal({ item, tableId, onClose, isPresenting, presenterData }) {
   const category = fileCategory(item);
-  const fileUrl = item.url?.startsWith("http") ? item.url : `${API}/api/files/${item.url}`;
+  const fileUrl = buildFileUrl(item.url);
+  const downloadUrl = fileUrl ? `${fileUrl}${fileUrl.includes("?") ? "&" : "?"}download=true` : "";
 
   const [presenting, setPresenting] = useState(isPresenting || false);
   const [remoteState, setRemoteState] = useState(presenterData || null);
@@ -111,7 +111,7 @@ export default function FileViewerModal({ item, tableId, onClose, isPresenting, 
               {presenting ? <><MonitorOff size={13} /> Stop</> : <><Monitor size={13} /> Present to Table</>}
             </button>
           )}
-          <a href={fileUrl} download={item.name} style={iconBtn} data-testid="file-viewer-download" title="Download">
+          <a href={downloadUrl} style={iconBtn} data-testid="file-viewer-download" title="Download">
             <Download size={16} color="#fff" />
           </a>
           <button onClick={onClose} style={iconBtn} data-testid="file-viewer-close"><X size={16} color="#fff" /></button>

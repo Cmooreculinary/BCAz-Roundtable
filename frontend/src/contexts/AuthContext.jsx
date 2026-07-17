@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
-import { api, formatApiErrorDetail } from "../lib/api";
+import { api, formatApiError } from "../lib/api";
 import logger from "../lib/logger";
 
 const AuthContext = createContext(null);
@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user);
       return data.user;
     } catch (e) {
-      const msg = formatApiErrorDetail(e.response?.data?.detail) || e.message;
+      const msg = formatApiError(e, "Sign-in failed");
       setError(msg);
       throw new Error(msg);
     }
@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user);
       return data.user;
     } catch (e) {
-      const msg = formatApiErrorDetail(e.response?.data?.detail) || e.message;
+      const msg = formatApiError(e, "Registration failed");
       setError(msg);
       throw new Error(msg);
     }

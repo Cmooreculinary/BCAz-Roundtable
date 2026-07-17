@@ -18,6 +18,8 @@ services:
         value: /opt/data/roundtable_vo.sqlite3
       - key: UPLOAD_ROOT
         value: /opt/data/uploads
+      - key: MAX_UPLOAD_BYTES
+        value: 52428800
       - key: APP_NAME
         value: Roundtable_VO
       - key: JWT_SECRET
@@ -47,7 +49,7 @@ services:
     name: roundtable-vo-frontend
     runtime: static
     rootDir: frontend
-    buildCommand: npm ci --legacy-peer-deps && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     staticPublishPath: build
     routes:
       - type: rewrite

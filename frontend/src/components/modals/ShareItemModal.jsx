@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { X, UploadCloud, Image, FileText, Video, Music, Link2, StickyNote, Sheet, Presentation, HeartHandshake, Sparkles, CheckCircle } from "lucide-react";
-import { api, API, formatApiErrorDetail } from "../../lib/api";
+import { api, API, formatApiError } from "../../lib/api";
 import { toast } from "sonner";
 
 const TYPES = [
@@ -50,20 +50,25 @@ export default function ShareItemModal({ tables = [], defaultTable, onClose, onS
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch(`${API}/api/upload`, { method: "POST", credentials: "include", body: fd });
-      if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+      const res = await fetch(`${API}/upload`, { method: "POST", credentials: "include", body: fd });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const error = new Error(`Upload failed: ${res.status}`);
+        error.response = { data: body };
+        throw error;
+      }
       const up = await res.json();
       await api.post(`/tables/${tableId}/items`, {
         type,
         name: name.trim() || file.name,
-        url: `${API}/api/files/${up.storage_path}`,
+        url: up.storage_path,
         file_size: up.size,
         mime_type: file.type,
       });
       toast.success("Shared");
       onShared?.();
     } catch (e) {
-      toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message || "Upload failed");
+      toast.error(formatApiError(e, "Upload failed"));
     } finally { setUploading(false); }
   };
 
