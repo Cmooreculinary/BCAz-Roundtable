@@ -12,7 +12,7 @@
 |-------|-------|
 | **Status** | PRIMARY — Active Development |
 | **Iteration** | 18a |
-| **Platform** | Render-ready as of 2026-05-21 |
+| **Platform** | Render-ready as of 2026-07-18 |
 | **Stack** | React 19 + FastAPI + SQLite |
 | **Other versions** | `round-table` repo = Cloudflare/Hono edition (separate stack) |
 
@@ -28,6 +28,7 @@
 - **WebSocket co-viewing** — real-time file viewer sync
 - **Soft-delete architecture** — safe data recovery on all content
 - **DiceBear stylized avatars** — illustrated portrait system (Iteration 18)
+- **Cross-origin session continuity** — HttpOnly cookies remain enabled, with a session-scoped bearer fallback for browsers that block cookies between the separate Render frontend and backend domains
 
 ---
 
@@ -43,7 +44,7 @@
 # Optional: VAPID keys, TWILIO creds, ANTHROPIC_API_KEY (Smart Suggestions)
 ```
 
-The `render.yaml` at the repo root defines both the backend (Python web service) and frontend (static site). SQLite and uploads are configured under `/opt/data`, backed by a Render persistent disk on the backend service. Render persistent disks require a paid web service; without the disk, local file changes are ephemeral across deploys/restarts.
+The `render.yaml` at the repo root defines both the backend (Python web service) and frontend (static site). The production backend starts through `backend/app.py`, which exposes the existing FastAPI application and adds the browser-safe authentication response required by the separate Render domains. SQLite and uploads are configured under `/opt/data`, backed by a Render persistent disk on the backend service. Render persistent disks require a paid web service; without the disk, local file changes are ephemeral across deploys/restarts.
 
 ---
 
@@ -65,15 +66,18 @@ The `render.yaml` at the repo root defines both the backend (Python web service)
 Roundtable_VO/
 ├── render.yaml                    # Render Blueprint (frontend + backend)
 ├── backend/
-│   ├── server.py                  # FastAPI app, Iteration 18a
+│   ├── app.py                     # Production entrypoint and cross-origin auth response
+│   ├── server.py                  # Core FastAPI application, Iteration 18a
 │   ├── requirements.txt           # Slim Render-ready dependencies
 │   ├── .env.example               # All required env vars documented
-│   └── tests/                     # 14 test files across all iterations
+│   └── tests/                     # Launch, security, and integration tests
 ├── frontend/
 │   ├── src/
 │   │   ├── views/                 # Portal, TableView, GatherExperience, etc.
 │   │   ├── components/            # RoundTableViz, Sidebar, modals
-│   │   └── lib/                   # scenes.js, webrtc.js, realtime.js
+│   │   ├── pages/                 # Authentication and onboarding
+│   │   ├── styles/                # Responsive onboarding and modal styles
+│   │   └── lib/                   # API, auth continuity, scenes, WebRTC, realtime
 │   ├── .env.example
 │   └── package.json
 ├── design_guidelines.json
