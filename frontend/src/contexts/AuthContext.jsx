@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
-import { api, formatApiError } from "../lib/api";
+import { api, clearAccessToken, formatApiError, setAccessToken } from "../lib/api";
+import { disconnectWebSocket } from "../lib/realtime";
 import logger from "../lib/logger";
 
 const AuthContext = createContext(null);
@@ -9,16 +10,31 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [error, setError] = useState("");
 
+  const handleUnauthorized = useCallback((err) => {
+    if (err?.response?.status === 401) {
+      clearAccessToken();
+      disconnectWebSocket();
+      setUser(false);
+      return true;
+    }
+    return false;
+  }, []);
+
   const fetchMe = useCallback(async () => {
     try {
       const { data } = await api.get("/auth/me");
+      setError("");
       setUser(data.user);
       return data.user;
     } catch (err) {
+      handleUnauthorized(err);
       setUser(false);
+      if (err?.response?.status !== 401) {
+        setError(formatApiError(err, "Could not verify your session"));
+      }
       return null;
     }
-  }, []);
+  }, [handleUnauthorized]);
 
   useEffect(() => {
     fetchMe();
@@ -28,12 +44,14 @@ export const AuthProvider = ({ children }) => {
     setError("");
     try {
       const { data } = await api.post("/auth/login", { email, password });
+      setAccessToken(data.access_token);
       setUser(data.user);
       return data.user;
-    } catch (e) {
-      const msg = formatApiError(e, "Sign-in failed");
-      setError(msg);
-      throw new Error(msg);
+    } catch (err) {
+      clearAccessToken();
+      const message = formatApiError(err, "Sign-in failed");
+      setError(message);
+      throw new Error(message);
     }
   }, []);
 
@@ -41,16 +59,20 @@ export const AuthProvider = ({ children }) => {
     setError("");
     try {
       const { data } = await api.post("/auth/register", { name, email, password });
+      setAccessToken(data.access_token);
       setUser(data.user);
       return data.user;
-    } catch (e) {
-      const msg = formatApiError(e, "Registration failed");
-      setError(msg);
-      throw new Error(msg);
+    } catch (err) {
+      clearAccessToken();
+      const message = formatApiError(err, "Registration failed");
+      setError(message);
+      throw new Error(message);
     }
   }, []);
 
   const logout = useCallback(async () => {
+    clearAccessToken();
+    disconnectWebSocket();
     try {
       await api.post("/auth/logout");
     } catch (err) {
@@ -60,13 +82,25 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const updateMe = useCallback(async (patch) => {
-    const { data } = await api.put("/me", patch);
-    setUser(data);
-    return data;
-  }, []);
+    try {
+      const { data } = await api.put("/me", patch);
+      setUser(data);
+      return data;
+    } catch (err) {
+      handleUnauthorized(err);
+      throw err;
+    }
+  }, [handleUnauthorized]);
 
   const contextValue = useMemo(() => ({
-    user, setUser, login, register, logout, updateMe, error, refresh: fetchMe
+    user,
+    setUser,
+    login,
+    register,
+    logout,
+    updateMe,
+    error,
+    refresh: fetchMe,
   }), [user, error, fetchMe, login, register, logout, updateMe]);
 
   return (
