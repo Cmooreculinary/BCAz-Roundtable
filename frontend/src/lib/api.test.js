@@ -1,4 +1,13 @@
-import { API, buildFileUrl, formatApiError, normalizeBackendUrl } from "./api";
+import {
+  ACCESS_TOKEN_KEY,
+  API,
+  buildFileUrl,
+  clearAccessToken,
+  formatApiError,
+  getAccessToken,
+  normalizeBackendUrl,
+  setAccessToken,
+} from "./api";
 
 describe("API URL handling", () => {
   test("defaults to the local backend", () => {
@@ -26,6 +35,26 @@ describe("API URL handling", () => {
   test("repairs legacy double-api absolute file URLs", () => {
     expect(buildFileUrl("https://api.example.com/api/api/files/example.pdf"))
       .toBe("https://api.example.com/api/files/example.pdf");
+  });
+});
+
+describe("cross-origin access token handling", () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  test("stores the access token only for the current browser session", () => {
+    setAccessToken("signed-token");
+    expect(getAccessToken()).toBe("signed-token");
+    expect(window.sessionStorage.getItem(ACCESS_TOKEN_KEY)).toBe("signed-token");
+    expect(window.localStorage.getItem(ACCESS_TOKEN_KEY)).toBeNull();
+  });
+
+  test("clears the access token on logout or failed authentication", () => {
+    setAccessToken("signed-token");
+    clearAccessToken();
+    expect(getAccessToken()).toBe("");
+    expect(window.sessionStorage.getItem(ACCESS_TOKEN_KEY)).toBeNull();
   });
 });
 
