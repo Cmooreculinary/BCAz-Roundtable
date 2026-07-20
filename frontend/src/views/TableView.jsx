@@ -29,6 +29,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
   const [viewingItem, setViewingItem] = useState(null);
   const [incomingPresentation, setIncomingPresentation] = useState(null);
   const [sceneEditorOpen, setSceneEditorOpen] = useState(false);
+  const [gestures, setGestures] = useState({});
 
   const isOwnerOrAdmin = !!table && (table.created_by === user?.id);
 
@@ -78,6 +79,16 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
     return () => clearInterval(int);
   }, [load, loadMessages]);
 
+  const showGesture = useCallback((userId, gesture) => {
+    setGestures((current) => ({ ...current, [userId]: gesture }));
+    window.setTimeout(() => setGestures((current) => {
+      if (current[userId] !== gesture) return current;
+      const next = { ...current };
+      delete next[userId];
+      return next;
+    }), 4200);
+  }, []);
+
   // Live updates
   useRTEvent((evt) => {
     if (!evt) return;
@@ -99,6 +110,9 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
       // Iteration 18 — seat claim/leave broadcast
       setSeats(evt.seats || []);
     }
+    if (evt.type === "table_gesture" && evt.table_id === id) {
+      showGesture(evt.user_id, evt.gesture);
+    }
     if (evt.type === "present_start" && evt.table_id === id) {
       // Someone is presenting a file — open the viewer
       const presentItem = { id: evt.item_id, name: evt.item_name, url: evt.item_url, mime_type: evt.item_mime, shared_by_name: "Presenter" };
@@ -110,7 +124,16 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
       setIncomingPresentation(null);
       toast.info("Presentation ended");
     }
-  }, [id, load]);
+  }, [id, load, showGesture]);
+
+  const sendGesture = useCallback(async (gesture) => {
+    showGesture(user.id, gesture);
+    try {
+      await api.post(`/tables/${id}/gesture`, { gesture });
+    } catch (error) {
+      toast.error(formatApiErrorDetail(error.response?.data?.detail) || "Could not share gesture");
+    }
+  }, [id, showGesture, user.id]);
 
   // Iteration 18 — seat claim/leave handlers
   const claimSeat = useCallback(async (seatIndex) => {
@@ -219,7 +242,11 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
             currentUserId={user?.id}
             onClaimSeat={claimSeat}
             onLeaveSeat={leaveSeat}
+            gestures={gestures}
           />
+          <div data-testid="table-gesture-bar" style={{ position: "absolute", left: "50%", bottom: 14, transform: "translateX(-50%)", zIndex: 4, display: "flex", gap: 5, padding: 6, borderRadius: 14, background: "rgba(13,13,13,.86)", border: "1px solid rgba(255,255,255,.14)", backdropFilter: "blur(12px)", boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}>
+            {GESTURES.map((gesture) => <button key={gesture.id} type="button" onClick={() => sendGesture(gesture.id)} title={gesture.label} aria-label={gesture.label} data-testid={`gesture-${gesture.id}`} style={{ width: 40, height: 38, border: 0, borderRadius: 9, background: gestures[user.id] === gesture.id ? "#EC5B13" : "rgba(255,255,255,.08)", color: "#fff", cursor: "pointer", fontSize: 20 }}>{gesture.mark}</button>)}
+          </div>
         </div>
 
         {/* Right: Table-scoped panels */}
@@ -336,3 +363,11 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
     </div>
   );
 }
+
+const GESTURES = [
+  { id: "clap", label: "Clap", mark: "👏" },
+  { id: "arms_folded", label: "Fold arms", mark: "🙅" },
+  { id: "hands_up", label: "Put hands in the air", mark: "🙌" },
+  { id: "fist_raised", label: "Raise one fist", mark: "✊" },
+  { id: "head_down", label: "Put head on the table", mark: "😴" },
+];

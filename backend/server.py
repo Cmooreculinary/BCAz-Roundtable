@@ -540,6 +540,10 @@ class SeatClaimIn(BaseModel):
     seat_index: Optional[int] = None  # None ⇒ auto-claim first free seat
 
 
+class TableGestureIn(BaseModel):
+    gesture: Literal["clap", "arms_folded", "hands_up", "fist_raised", "head_down"]
+
+
 class SharedItemIn(BaseModel):
     type: Literal["photo", "document", "video", "audio", "link", "note", "spreadsheet", "presentation", "prayer", "intention"]
     name: str = Field(min_length=1, max_length=200)
@@ -585,7 +589,8 @@ class InviteIn(BaseModel):
     table_id: str
     max_uses: int = 50
     expires_in_days: int = 30
-    recipient_email: Optional[str] = None
+    recipient_email: Optional[EmailStr] = None
+    recipient_name: Optional[str] = Field(default=None, max_length=60)
 
 
 class InviteJoinIn(BaseModel):
@@ -856,6 +861,19 @@ async def get_table(table_id: str, user: dict = Depends(get_current_user)):
     t["items"] = items
     t["events"] = events
     t["seats"] = seats
+    pending_invites = await db.invites.find({
+        "table_id": table_id,
+        "recipient_email": {"$exists": True, "$ne": None},
+        "accepted_at": {"$exists": False},
+        "deleted_at": {"$exists": False},
+    }, {"_id": 0}).sort("created_at", -1).to_list(50)
+    t["pending_invites"] = [{
+        "id": invite["id"],
+        "name": invite.get("recipient_name") or invite["recipient_email"].split("@")[0],
+        "email": invite["recipient_email"],
+        "initials": initials_of(invite.get("recipient_name") or invite["recipient_email"].split("@")[0]),
+        "status": "invited",
+    } for invite in pending_invites]
     # Iteration 18 — default scene for legacy tables created before this iteration
     if not t.get("scene"):
         t["scene"] = dict(DEFAULT_SCENE)
@@ -1035,6 +1053,21 @@ async def leave_seat(table_id: str, user: dict = Depends(get_current_user)):
         "seats": seats,
     })
     return {"ok": True, "released": res.deleted_count, "seats": seats}
+
+
+@api.post("/tables/{table_id}/gesture")
+async def table_gesture(table_id: str, payload: TableGestureIn, user: dict = Depends(get_current_user)):
+    """Broadcast a short-lived, in-room avatar gesture to every table member."""
+    await ensure_table_member(table_id, user["id"])
+    event = {
+        "type": "table_gesture",
+        "table_id": table_id,
+        "user_id": user["id"],
+        "gesture": payload.gesture,
+        "created_at": now_iso(),
+    }
+    await ws_manager.broadcast_to_table(table_id, event)
+    return {"ok": True, **event}
 
 
 # ---------- Shared items ----------
@@ -1547,6 +1580,9 @@ async def create_invite(payload: InviteIn, user: dict = Depends(get_current_user
         "expires_at": (datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days)).isoformat(),
         "created_at": now_iso(),
     }
+    if payload.recipient_email:
+        inv["recipient_email"] = str(payload.recipient_email).lower()
+        inv["recipient_name"] = (payload.recipient_name or "").strip() or None
     await db.invites.insert_one(inv)
     inv.pop("_id", None)
 
@@ -1600,6 +1636,7 @@ async def join_invite(payload: InviteJoinIn, user: dict = Depends(get_current_us
         "table_id": inv["table_id"], "user_id": user["id"], "role": "member", "joined_at": now_iso()
     })
     await db.invites.update_one({"id": inv["id"]}, {"$inc": {"uses": 1}})
+    await db.invites.update_one({"id": inv["id"]}, {"$set": {"accepted_at": now_iso(), "accepted_by": user["id"]}})
     # Referral tracking
     await db.referrals.insert_one({
         "id": new_id(),

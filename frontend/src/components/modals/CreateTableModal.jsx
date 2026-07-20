@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Armchair, Home, BookOpen, Heart, Sparkles, Briefcase, Users, ChevronDown, ChevronUp, Settings2 } from "lucide-react";
+import { X, Armchair, Home, BookOpen, Heart, Sparkles, Briefcase, Users, Settings2 } from "lucide-react";
 import { api, formatApiErrorDetail } from "../../lib/api";
 import { toast } from "sonner";
 import { DEFAULT_SCENE } from "../../lib/scenes";
@@ -22,7 +22,6 @@ export default function CreateTableModal({ onClose, onCreated }) {
   const [active, setActive] = useState(true);
   const [purpose, setPurpose] = useState("family");
   const [busy, setBusy] = useState(false);
-  const [sceneOpen, setSceneOpen] = useState(false);
   const [scene, setScene] = useState({ ...DEFAULT_SCENE });
 
   const submit = async () => {
@@ -39,7 +38,7 @@ export default function CreateTableModal({ onClose, onCreated }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal create-table-modal" onClick={(e) => e.stopPropagation()} data-testid="create-table-modal" style={{ maxWidth: 560 }}>
+      <div className="modal create-table-modal" onClick={(e) => e.stopPropagation()} data-testid="create-table-modal" style={{ maxWidth: 1040, maxHeight: "92vh", overflowY: "auto" }}>
         <div style={{ padding: 18, borderBottom: "1px solid var(--border-light)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div className="avatar" style={{ width: 36, height: 36, background: color, borderRadius: 10 }}><Armchair size={18} /></div>
@@ -86,33 +85,19 @@ export default function CreateTableModal({ onClose, onCreated }) {
             Make this table live right now
           </label>
 
-          {/* Iteration 18 — collapsible scene customization */}
-          <button
-            type="button"
-            onClick={() => setSceneOpen((v) => !v)}
-            data-testid="create-table-scene-toggle"
-            style={{
-              width: "100%", padding: "10px 12px", borderRadius: 10,
-              display: "flex", alignItems: "center", gap: 8,
-              background: "var(--bg-secondary)", border: "1px solid var(--border-color)",
-              cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-primary)",
-            }}
-          >
+          <div data-testid="create-table-scene-toggle" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, display: "flex", alignItems: "center", gap: 8, background: "var(--bg-secondary)", border: "1px solid var(--border-color)", fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
             <Settings2 size={14} color="var(--mac-blue)" />
-            <span style={{ flex: 1, textAlign: "left" }}>Customize scene <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>(optional)</span></span>
+            <span style={{ flex: 1, textAlign: "left" }}>Choose the room and table</span>
             <span style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 400 }}>
               {scene.room === DEFAULT_SCENE.room && scene.table === DEFAULT_SCENE.table ? "Defaults" : "Customized"}
             </span>
-            {sceneOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          {sceneOpen && (
-            <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid var(--border-light)", background: "var(--bg-tertiary)" }}>
-              <SceneEditor value={scene} onChange={setScene} />
-              <div style={{ marginTop: 10, fontSize: 11, color: "var(--text-secondary)" }}>
-                Changes apply when you create the table. You can edit the scene any time.
-              </div>
+          </div>
+          <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid var(--border-light)", background: "var(--bg-tertiary)" }}>
+            <SceneEditor value={scene} onChange={setScene} />
+            <div style={{ marginTop: 10, fontSize: 11, color: "var(--text-secondary)" }}>
+              This room, table, seat count, service, and atmosphere will open with the new table.
             </div>
-          )}
+          </div>
         </div>
         <div style={{ padding: 14, borderTop: "1px solid var(--border-light)", display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>

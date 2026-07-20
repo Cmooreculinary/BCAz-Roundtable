@@ -8,13 +8,21 @@ export default function InviteModal({ tables = [], defaultTable, onClose }) {
   const [maxUses, setMaxUses] = useState(50);
   const [days, setDays] = useState(30);
   const [code, setCode] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
   const [busy, setBusy] = useState(false);
 
   const generate = async () => {
     if (!tableId) return toast.error("Pick a table");
     setBusy(true);
     try {
-      const { data } = await api.post("/invites", { table_id: tableId, max_uses: Number(maxUses), expires_in_days: Number(days) });
+      const { data } = await api.post("/invites", {
+        table_id: tableId,
+        max_uses: Number(maxUses),
+        expires_in_days: Number(days),
+        recipient_name: recipientName.trim() || null,
+        recipient_email: recipientEmail.trim() || null,
+      });
       setCode(data.code);
       toast.success("Invite code ready");
     } catch (e) { toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message); }
@@ -35,6 +43,19 @@ export default function InviteModal({ tables = [], defaultTable, onClose }) {
           <select className="input" value={tableId} onChange={(e) => setTableId(e.target.value)} data-testid="invite-table" style={{ margin: "6px 0 10px" }}>
             {tables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+            <div>
+              <label style={lbl}>Guest name</label>
+              <input className="input" value={recipientName} onChange={(e) => setRecipientName(e.target.value)} placeholder="Who is coming?" maxLength={60} data-testid="invite-recipient-name" style={{ marginTop: 6 }} />
+            </div>
+            <div>
+              <label style={lbl}>Email</label>
+              <input type="email" className="input" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} placeholder="guest@example.com" data-testid="invite-recipient-email" style={{ marginTop: 6 }} />
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-secondary)", margin: "-4px 0 12px", lineHeight: 1.45 }}>
+            Named email guests appear as faded reserved avatars until they accept.
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
             <div>
               <label style={lbl}>Max Uses</label>

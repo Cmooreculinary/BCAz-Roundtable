@@ -35,7 +35,7 @@ const TYPE_COLOR = {
  *   onLeaveSeat:    () => void            — release my seat
  *   onMemberClick:  (member) => void
  */
-export default function RoundTableViz({ table, seats = [], currentUserId, onClaimSeat, onLeaveSeat, onMemberClick }) {
+export default function RoundTableViz({ table, seats = [], currentUserId, onClaimSeat, onLeaveSeat, onMemberClick, gestures = {} }) {
   const scene = useMemo(() => resolveScene(table?.scene), [table?.scene]);
   const live = !!table?.active;
   const members = useMemo(() => table?.members || [], [table?.members]);
@@ -46,12 +46,16 @@ export default function RoundTableViz({ table, seats = [], currentUserId, onClai
   const memberById = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
   const seatByIndex = useMemo(() => Object.fromEntries(seats.map((s) => [s.seat_index, s])), [seats]);
   const myCurrentSeat = useMemo(() => seats.find((s) => s.user_id === currentUserId), [seats, currentUserId]);
+  const freeSeatIndexes = useMemo(() => Array.from({ length: seatCount }, (_, index) => index).filter((index) => !seatByIndex[index]), [seatCount, seatByIndex]);
 
   // Sizing: room ~600px wide, table sits at center
   const ROOM = 580;
-  const TABLE = 260;
+  const tableSize = TABLE_GEOMETRY[scene.table.id] || TABLE_GEOMETRY.mahogany;
+  const TABLE_W = tableSize.width;
+  const TABLE_H = tableSize.height;
   const SEAT = 56;
-  const SEAT_RADIUS = TABLE / 2 + 56; // outside table edge
+  const SEAT_RADIUS_X = TABLE_W / 2 + 58;
+  const SEAT_RADIUS_Y = TABLE_H / 2 + 62;
 
   return (
     <div className="rt-room" data-testid="rt-room" style={{
@@ -98,25 +102,25 @@ export default function RoundTableViz({ table, seats = [], currentUserId, onClai
           {live && (
             <div style={{
               position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)",
-              width: TABLE + 120, height: TABLE + 120, borderRadius: "50%",
+              width: TABLE_W + 120, height: TABLE_H + 120, borderRadius: "50%",
               background: `radial-gradient(circle, ${scene.ambiance.color}22 0%, transparent 70%)`,
               animation: "rt-pulse 3s ease-in-out infinite",
               pointerEvents: "none",
             }} />
           )}
 
-          {/* The wood-grain table */}
+          {/* The selected table asset is centered at its true aspect ratio. */}
           <div data-testid="rt-table" style={{
             position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)",
-            width: TABLE, height: TABLE, borderRadius: "50%",
-            background: scene.table.wood,
-            boxShadow: "0 14px 40px rgba(0,0,0,0.55), inset 0 2px 6px rgba(255,255,255,0.12), inset 0 -8px 20px rgba(0,0,0,0.35)",
+            width: TABLE_W, height: TABLE_H,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
             color: scene.table.id === "luncheon" ? "#3a3a3c" : "rgba(255,255,255,0.9)",
             textAlign: "center",
           }}>
+            <img src={scene.table.image} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", filter: "drop-shadow(0 16px 16px rgba(0,0,0,.7))" }} />
+            <div style={{ position: "absolute", inset: "22% 18%", borderRadius: "50%", background: "rgba(0,0,0,.18)", backdropFilter: "blur(1px)" }} />
             <div style={{ fontSize: 32, lineHeight: 1, marginBottom: 6 }}>{scene.tabletop.icon}</div>
-            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "-0.01em" }}>{table?.name}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "-0.01em", position: "relative" }}>{table?.name}</div>
             <div style={{ fontSize: 10, opacity: 0.75, marginTop: 4 }}>
               {scene.tabletop.name} · {seats.length}/{seatCount} seated
             </div>
@@ -124,9 +128,8 @@ export default function RoundTableViz({ table, seats = [], currentUserId, onClai
             {/* Items on the table surface (max 6 to keep it tidy) */}
             {items.slice(0, 6).map((it, i) => {
               const angle = (i * (360 / Math.max(items.slice(0, 6).length, 3)) - 90) * (Math.PI / 180);
-              const r = TABLE * 0.32;
-              const x = TABLE / 2 + Math.cos(angle) * r;
-              const y = TABLE / 2 + Math.sin(angle) * r;
+              const x = TABLE_W / 2 + Math.cos(angle) * TABLE_W * 0.30;
+              const y = TABLE_H / 2 + Math.sin(angle) * TABLE_H * 0.25;
               return (
                 <div
                   key={it.id}
@@ -149,8 +152,8 @@ export default function RoundTableViz({ table, seats = [], currentUserId, onClai
           {/* Fixed seat slots — Anchor 2 */}
           {Array.from({ length: seatCount }).map((_, i) => {
             const angle = (i * (360 / seatCount) - 90) * (Math.PI / 180);
-            const x = ROOM / 2 + Math.cos(angle) * SEAT_RADIUS - SEAT / 2;
-            const y = ROOM / 2 + Math.sin(angle) * SEAT_RADIUS - SEAT / 2;
+            const x = ROOM / 2 + Math.cos(angle) * SEAT_RADIUS_X - SEAT / 2;
+            const y = ROOM / 2 + Math.sin(angle) * SEAT_RADIUS_Y - SEAT / 2;
             const seat = seatByIndex[i];
             const occupant = seat ? memberById[seat.user_id] : null;
             const isMine = seat && seat.user_id === currentUserId;
@@ -190,7 +193,10 @@ export default function RoundTableViz({ table, seats = [], currentUserId, onClai
                 }}
               >
                 {occupant ? (
-                  <UserAvatar user={occupant} size={SEAT - 6} style={{ borderRadius: "50%" }} />
+                  <div className={`rt-avatar-pose rt-avatar-pose--${gestures[occupant.id] || "idle"}`}>
+                    <UserAvatar user={occupant} size={SEAT - 6} style={{ borderRadius: "50%" }} />
+                    {gestures[occupant.id] && <span className="rt-gesture-mark" aria-label={GESTURE_LABELS[gestures[occupant.id]]}>{GESTURE_MARKS[gestures[occupant.id]]}</span>}
+                  </div>
                 ) : (
                   <span aria-hidden style={{ opacity: 0.5 }}>{i + 1}</span>
                 )}
@@ -211,8 +217,8 @@ export default function RoundTableViz({ table, seats = [], currentUserId, onClai
             const occupant = seat ? memberById[seat.user_id] : null;
             if (!occupant) return null;
             const angle = (i * (360 / seatCount) - 90) * (Math.PI / 180);
-            const x = ROOM / 2 + Math.cos(angle) * SEAT_RADIUS;
-            const y = ROOM / 2 + Math.sin(angle) * SEAT_RADIUS + SEAT / 2 + 6;
+            const x = ROOM / 2 + Math.cos(angle) * SEAT_RADIUS_X;
+            const y = ROOM / 2 + Math.sin(angle) * SEAT_RADIUS_Y + SEAT / 2 + 6;
             return (
               <div
                 key={`label-${i}`}
@@ -229,6 +235,18 @@ export default function RoundTableViz({ table, seats = [], currentUserId, onClai
                 {occupant.name.split(" ")[0]}
               </div>
             );
+          })}
+
+          {(table?.pending_invites || []).slice(0, Math.max(0, seatCount - seats.length)).map((invite, index) => {
+            const seatIndex = freeSeatIndexes[index];
+            if (seatIndex === undefined) return null;
+            const angle = (seatIndex * (360 / seatCount) - 90) * (Math.PI / 180);
+            const x = ROOM / 2 + Math.cos(angle) * SEAT_RADIUS_X - SEAT / 2;
+            const y = ROOM / 2 + Math.sin(angle) * SEAT_RADIUS_Y - SEAT / 2;
+            return <div key={invite.id} data-testid={`rt-pending-${invite.id}`} title={`${invite.name} — invitation pending`} style={{ position: "absolute", left: x, top: y, width: SEAT, height: SEAT, borderRadius: "50%", border: "2px dashed rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", display: "grid", placeItems: "center", opacity: .38, filter: "grayscale(1)", pointerEvents: "none" }}>
+              <span style={{ fontSize: 13, fontWeight: 800 }}>{invite.initials}</span>
+              <span style={{ position: "absolute", top: 58, whiteSpace: "nowrap", fontSize: 9, color: "#fff" }}>{invite.name} · invited</span>
+            </div>;
           })}
         </div>
       </div>
@@ -252,10 +270,25 @@ export default function RoundTableViz({ table, seats = [], currentUserId, onClai
           0%, 100% { opacity: 0.5; transform: translate(-50%,-50%) scale(1); }
           50%      { opacity: 0.8; transform: translate(-50%,-50%) scale(1.04); }
         }
+        .rt-avatar-pose { position: relative; display: grid; place-items: center; transition: transform .25s ease; }
+        .rt-avatar-pose--clap { animation: rt-clap .35s ease-in-out 4 alternate; }
+        .rt-avatar-pose--arms_folded { transform: scale(.94); filter: saturate(.75); }
+        .rt-avatar-pose--hands_up { transform: translateY(-12px) scale(1.06); }
+        .rt-avatar-pose--fist_raised { transform: translate(-5px,-8px) rotate(-4deg); }
+        .rt-avatar-pose--head_down { transform: translateY(24px) rotate(8deg) scale(.94); }
+        .rt-gesture-mark { position:absolute; left:50%; bottom:72%; transform:translateX(-50%); font-size:25px; filter:drop-shadow(0 3px 4px #000); white-space:nowrap; }
+        @keyframes rt-clap { from { transform: rotate(-4deg) scale(.96); } to { transform: rotate(4deg) scale(1.06); } }
       `}</style>
     </div>
   );
 }
+
+const TABLE_GEOMETRY = {
+  mahogany: { width: 260, height: 260 }, family: { width: 260, height: 260 }, strategy: { width: 280, height: 280 },
+  executive: { width: 350, height: 190 }, drafting: { width: 340, height: 190 }, luncheon: { width: 310, height: 205 },
+};
+const GESTURE_MARKS = { clap: "👏", arms_folded: "🙅", hands_up: "🙌", fist_raised: "✊", head_down: "💤" };
+const GESTURE_LABELS = { clap: "Clapping", arms_folded: "Arms folded", hands_up: "Hands in the air", fist_raised: "Fist raised", head_down: "Head on the table" };
 
 function SceneChip({ label, dot }) {
   return (

@@ -22,16 +22,16 @@ const DEMO_AVATARS = [
 ];
 
 const EXPLORE_CARDS = [
-  { name: "Family Dinner", room: "Warm Private Dining", table: "Family Dinner Table", tabletop: "Formal Dinner", ambiance: "Warm Dinner", gradient: "linear-gradient(135deg, #6b3a1f, #a47a4c)" },
-  { name: "Church Leadership", room: "Church / Community", table: "Mahogany Round", tabletop: "Meeting Set", ambiance: "Focus Mode", gradient: "linear-gradient(135deg, #2d1a4a, #4a2d6b)" },
-  { name: "Youth Sports Planning", room: "Creative Studio", table: "Drafting / Planning", tabletop: "Planning Set", ambiance: "Business Bright", gradient: "linear-gradient(135deg, #1a4a2d, #34C759)" },
-  { name: "Executive Partner Dinner", room: "Skyline Executive", table: "Mahogany Round", tabletop: "Premium Chef Table", ambiance: "Evening Jazz", gradient: "linear-gradient(135deg, #0a1628, #2d5a7b)" },
-  { name: "Bible Study", room: "Fireside Library", table: "Family Dinner Table", tabletop: "Coffee & Snacks", ambiance: "Fireside Calm", gradient: "linear-gradient(135deg, #4a2c1a, #6b4226)" },
-  { name: "Board Meeting", room: "Skyline Executive", table: "Executive Board", tabletop: "Meeting Set", ambiance: "Business Bright", gradient: "linear-gradient(135deg, #1c1c1e, #3a3a3c)" },
-  { name: "Birthday Gathering", room: "Outdoor Terrace", table: "Luncheon Table", tabletop: "Coffee & Snacks", ambiance: "Celebration", gradient: "linear-gradient(135deg, #ff2d55, #ff9500)" },
-  { name: "HOA Meeting", room: "Church / Community", table: "Executive Board", tabletop: "Meeting Set", ambiance: "Focus Mode", gradient: "linear-gradient(135deg, #2c2c2e, #5a5a5e)" },
-  { name: "Project War Room", room: "Creative Studio", table: "Strategy War Table", tabletop: "Planning Set", ambiance: "Focus Mode", gradient: "linear-gradient(135deg, #1c3a5c, #2d5a7b)" },
-  { name: "Premium Chef Event", room: "Warm Private Dining", table: "Mahogany Round", tabletop: "Premium Chef Table", ambiance: "Evening Jazz", gradient: "linear-gradient(135deg, #FFCC00, #FF9500)" },
+  { name: "Family Dinner", room: "dining", table: "drafting", tabletop: "formal", food: "dinner", ambiance: "warm", music: "acoustic" },
+  { name: "Church Leadership", room: "church", table: "mahogany", tabletop: "meeting", food: "coffee", ambiance: "focus", music: "worship" },
+  { name: "Youth Sports Planning", room: "studio", table: "strategy", tabletop: "planning", food: "snacks", ambiance: "bright", music: "ambient" },
+  { name: "Executive Partner Dinner", room: "skyline", table: "mahogany", tabletop: "chef", food: "chef", ambiance: "jazz", music: "jazz" },
+  { name: "Bible Study", room: "library", table: "family", tabletop: "coffee", food: "coffee", ambiance: "fireside", music: "worship" },
+  { name: "Board Meeting", room: "skyline", table: "executive", tabletop: "meeting", food: "none", ambiance: "bright", music: "off" },
+  { name: "Birthday Gathering", room: "terrace", table: "luncheon", tabletop: "coffee", food: "snacks", ambiance: "celebrate", music: "event" },
+  { name: "HOA Meeting", room: "church", table: "executive", tabletop: "meeting", food: "coffee", ambiance: "focus", music: "off" },
+  { name: "Project War Room", room: "studio", table: "strategy", tabletop: "planning", food: "none", ambiance: "focus", music: "ambient" },
+  { name: "Premium Chef Event", room: "dining", table: "mahogany", tabletop: "chef", food: "chef", ambiance: "jazz", music: "jazz" },
 ];
 
 // ── Main Component ──────────────────────────
@@ -125,7 +125,7 @@ export default function GatherExperience() {
         {tab === "builder" && <RoomBuilder config={config} set={set} />}
         {tab === "seats" && <AvatarSeating seated={seated} seatAvatar={seatAvatar} clearSeats={clearSeats} autoSeat={autoSeat} />}
         {tab === "live" && <LiveTableView config={config} seated={seated} simRunning={simRunning} simStep={simStep} setSimStep={setSimStep} setSimRunning={setSimRunning} setTab={setTab} autoSeat={autoSeat} />}
-        {tab === "explore" && <ExploreGrid />}
+        {tab === "explore" && <ExploreGrid set={set} setTab={setTab} />}
         {tab === "pricing" && <PricingPreview />}
         {tab === "notes" && <DemoNotes />}
       </div>
@@ -495,29 +495,45 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
 // ══════════════════════════════════════════════
 //  4. EXPLORE GRID
 // ══════════════════════════════════════════════
-function ExploreGrid() {
+function ExploreGrid({ set, setTab }) {
+  const resolve = (list, id) => list.find((item) => item.id === id);
+  const useScenario = (scenario, destination) => {
+    ["room", "table", "tabletop", "food", "ambiance", "music"].forEach((key) => set(key, resolve({ room: ROOMS, table: TABLES, tabletop: TABLETOPS, food: FOODS, ambiance: AMBIANCES, music: MUSICS }[key], scenario[key])));
+    setTab(destination);
+    toast.success(`${scenario.name} loaded`);
+  };
   return (
     <div>
-      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>What Roundtable_VO Can Become</h2>
+      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6 }}>Explore Complete Gatherings</h2>
+      <p style={{ color: "rgba(255,255,255,.58)", margin: "0 0 18px" }}>Every scenario includes the room, correctly sized table, tabletop, service, ambiance, and sound. Load one, then make it yours.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
-        {EXPLORE_CARDS.map((c) => (
+        {EXPLORE_CARDS.map((c) => {
+          const room = resolve(ROOMS, c.room); const table = resolve(TABLES, c.table); const tabletop = resolve(TABLETOPS, c.tabletop); const food = resolve(FOODS, c.food); const ambiance = resolve(AMBIANCES, c.ambiance); const music = resolve(MUSICS, c.music);
+          return (
           <div key={c.name} style={{
             borderRadius: 16, overflow: "hidden",
             background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
             transition: "transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s",
-            cursor: "pointer",
+            cursor: "default",
           }}>
-            <div style={{ height: 100, background: c.gradient, display: "flex", alignItems: "flex-end", padding: 14 }}>
+            <div style={{ height: 150, backgroundImage: `linear-gradient(180deg,transparent 25%,rgba(0,0,0,.86)),url(${room.image})`, backgroundSize: "cover", backgroundPosition: "center", display: "flex", alignItems: "flex-end", padding: 14, position: "relative" }}>
+              <img src={table.image} alt="" style={{ position: "absolute", width: "52%", height: "68%", objectFit: "contain", left: "24%", top: "19%", filter: "drop-shadow(0 8px 7px #000)" }} />
               <span style={{ fontSize: 16, fontWeight: 700, textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>{c.name}</span>
             </div>
             <div style={{ padding: 14 }}>
-              <InfoRow label="Room" value={c.room} />
-              <InfoRow label="Table" value={c.table} />
-              <InfoRow label="Tabletop" value={c.tabletop} />
-              <InfoRow label="Ambiance" value={c.ambiance} />
+              <InfoRow label="Room" value={room.name} />
+              <InfoRow label="Table" value={table.name} />
+              <InfoRow label="Tabletop" value={tabletop.name} />
+              <InfoRow label="Service" value={food.name} />
+              <InfoRow label="Ambiance" value={ambiance.name} />
+              <InfoRow label="Music" value={music.name} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
+                <button onClick={() => useScenario(c, "builder")} style={actionBtn("rgba(255,255,255,.1)")}><Settings2 size={13} /> Customize</button>
+                <button onClick={() => useScenario(c, "live")} style={actionBtn("#EC5B13")}><Play size={13} /> Enter</button>
+              </div>
             </div>
           </div>
-        ))}
+        );})}
       </div>
     </div>
   );
