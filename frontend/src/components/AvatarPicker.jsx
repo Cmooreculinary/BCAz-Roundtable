@@ -2,18 +2,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 
 const STYLES = [
-  { id: "adventurer", label: "Adventurer" },
+  { id: "adventurer", label: "Natural" },
   { id: "avataaars", label: "Classic" },
-  { id: "big-ears", label: "Big Ears" },
-  { id: "bottts", label: "Robots" },
-  { id: "fun-emoji", label: "Emoji" },
-  { id: "lorelei", label: "Lorelei" },
-  { id: "micah", label: "Micah" },
-  { id: "notionists", label: "Notion" },
-  { id: "open-peeps", label: "Peeps" },
-  { id: "pixel-art", label: "Pixel" },
-  { id: "thumbs", label: "Thumbs" },
-  { id: "personas", label: "Personas" },
+  { id: "lorelei", label: "Warm" },
+  { id: "micah", label: "Modern" },
+  { id: "notionists", label: "Community" },
+  { id: "personas", label: "Professional" },
 ];
 
 const SEEDS = [
@@ -77,7 +71,7 @@ export default function AvatarPicker({ currentUrl, onSelect, onClose }) {
         <header className="avatar-picker-header">
           <div>
             <div id="avatar-picker-title" className="avatar-picker-title">Build Your Roundtable Avatar</div>
-            <div id="avatar-picker-description" className="avatar-picker-description">Create one identity that can move naturally between every gathering.</div>
+            <div id="avatar-picker-description" className="avatar-picker-description">Choose a human, expressive identity built to remain clear during table gestures and group scenes.</div>
           </div>
           <button
             ref={closeButtonRef}
@@ -94,7 +88,7 @@ export default function AvatarPicker({ currentUrl, onSelect, onClose }) {
         <div className="avatar-environments" role="list" aria-label="Gathering environment">
           <span>Start with a setting</span>
           <div>{ENVIRONMENTS.map((item) => <button key={item.id} type="button" className={environment.id === item.id ? "is-selected" : ""} onClick={() => { setEnvironment(item); setSelectedStyle(item.style); }}>{item.label}</button>)}</div>
-          <small>The setting recommends a presentation; your identity stays yours.</small>
+          <small>The scenario recommends a visual treatment; the same avatar follows you into every room.</small>
         </div>
 
         <div className="avatar-picker-styles" role="tablist" aria-label="Avatar styles">
