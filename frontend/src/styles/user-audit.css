@@ -1,0 +1,83 @@
+/* User-audit hardening: keyboard controls, narrow-screen containment, and reduced motion. */
+button.dock-item,
+button.sb-item,
+button.sb-table-item {
+  border: 0;
+  font: inherit;
+}
+
+button.dock-item {
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+button.sb-item,
+button.sb-table-item {
+  width: 100%;
+  text-align: left;
+}
+
+button.sb-item:not(.active),
+button.sb-table-item:not(.active) {
+  background: transparent;
+}
+
+.dock-container {
+  max-width: calc(100vw - 12px);
+  overflow-x: auto;
+  overflow-y: visible;
+  justify-content: flex-start;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.dock-container::-webkit-scrollbar {
+  display: none;
+}
+
+.calendar-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.calendar-day-button {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.audit-action-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .audit-page-header {
+    align-items: flex-start !important;
+    flex-direction: column;
+  }
+
+  .audit-action-group {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .calendar-scroll .cal-grid {
+    min-width: 560px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
