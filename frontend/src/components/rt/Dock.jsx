@@ -4,7 +4,7 @@ import { Home, Calendar, MessageSquare, Radio, Users, Grid3x3, Mail, Share2, Bel
 const items = [
   { key: "/", label: "Portal", icon: <Home size={22} />, bg: "linear-gradient(135deg, #007AFF, #5AC8FA)" },
   { key: "/messages", label: "Messages", icon: <MessageSquare size={22} />, bg: "linear-gradient(135deg, #34C759, #5AC8FA)" },
-  { key: "/messages", label: "Email", icon: <Mail size={22} />, bg: "linear-gradient(135deg, #AF52DE, #FF2D55)" },
+  { key: "/communications", label: "Email", icon: <Mail size={22} />, bg: "linear-gradient(135deg, #AF52DE, #FF2D55)" },
   { key: "/walkie", label: "Walkie", icon: <Radio size={22} />, bg: "linear-gradient(135deg, #FF9500, #FF3B30)" },
   { key: "/call-history", label: "Calls", icon: <PhoneCall size={22} />, bg: "linear-gradient(135deg, #34C759, #30D158)" },
   { key: "/calendar", label: "Calendar", icon: <Calendar size={22} />, bg: "linear-gradient(135deg, #FF3B30, #FF9500)" },
@@ -16,23 +16,27 @@ const items = [
 
 export default function Dock({ currentPath, onNav, unreadCount = 0 }) {
   return (
-    <div className="dock-container" data-testid="dock">
-      {items.map((it, i) => {
+    <nav className="dock-container" data-testid="dock" aria-label="Primary application shortcuts">
+      {items.map((it) => {
         const isActive = it.key === "/" ? currentPath === "/" : currentPath.startsWith(it.key);
         return (
-          <div
-            key={`${it.key}-${i}`}
+          <button
+            key={`${it.key}-${it.label}`}
+            type="button"
             className={`dock-item ${isActive ? "active" : ""}`}
             onClick={() => onNav(it.key)}
             style={{ background: it.bg }}
             data-testid={`dock-${it.label.toLowerCase()}`}
+            aria-label={it.label}
+            aria-current={isActive ? "page" : undefined}
+            title={it.label}
           >
             {it.icon}
-            <span className="dock-tooltip">{it.label}</span>
-            {it.label === "Alerts" && unreadCount > 0 && <span className="dock-badge">{unreadCount}</span>}
-          </div>
+            <span className="dock-tooltip" aria-hidden="true">{it.label}</span>
+            {it.label === "Alerts" && unreadCount > 0 && <span className="dock-badge" aria-label={`${unreadCount} unread notifications`}>{unreadCount}</span>}
+          </button>
         );
       })}
-    </div>
+    </nav>
   );
 }
