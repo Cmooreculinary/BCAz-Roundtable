@@ -21,24 +21,39 @@ export default function Sidebar({ tables = [], activeTableId, currentPath, onNav
     return currentPath.startsWith(path);
   };
 
+  const navigate = (path) => {
+    onNav(path);
+    onMobileClose?.();
+  };
+
+  const selectTable = (tableId) => {
+    onSelectTable(tableId);
+    onMobileClose?.();
+  };
+
   return (
-    <aside className={`sidebar ${mobileOpen ? "mobile-open" : ""}`} data-testid="sidebar">
+    <aside className={`sidebar ${mobileOpen ? "mobile-open" : ""}`} data-testid="sidebar" aria-label="Application navigation">
       <div className="sb-label">Navigation</div>
-      {navItems.map((it) => (
-        <div
-          key={it.key}
-          className={`sb-item ${isActive(it.key) ? "active" : ""}`}
-          onClick={() => onNav(it.key)}
-          data-testid={`sb-nav-${it.key.replace("/", "") || "home"}`}
-        >
-          <span className="sb-icon">{it.icon}</span>
-          {it.label}
-        </div>
-      ))}
+      {navItems.map((it) => {
+        const active = isActive(it.key);
+        return (
+          <button
+            key={it.key}
+            type="button"
+            className={`sb-item ${active ? "active" : ""}`}
+            onClick={() => navigate(it.key)}
+            data-testid={`sb-nav-${it.key.replace("/", "") || "home"}`}
+            aria-current={active ? "page" : undefined}
+          >
+            <span className="sb-icon">{it.icon}</span>
+            {it.label}
+          </button>
+        );
+      })}
 
       <div className="sb-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         Tables
-        <button className="btn btn-ghost" onClick={onCreateTable} title="Create table" data-testid="sb-create-table-btn" style={{ padding: 2 }}>
+        <button className="btn btn-ghost" type="button" onClick={onCreateTable} title="Create table" aria-label="Create table" data-testid="sb-create-table-btn" style={{ padding: 2 }}>
           <Plus size={14} />
         </button>
       </div>
@@ -52,17 +67,19 @@ export default function Sidebar({ tables = [], activeTableId, currentPath, onNav
       {tables.map((t) => {
         const active = activeTableId === t.id && currentPath.startsWith("/table");
         return (
-          <div
+          <button
             key={t.id}
+            type="button"
             className={`sb-table-item ${t.active ? "" : "dormant"} ${active ? "active" : ""}`}
-            onClick={() => onSelectTable(t.id)}
+            onClick={() => selectTable(t.id)}
             data-testid={`sb-table-${t.id}`}
+            aria-current={active ? "page" : undefined}
           >
             {t.active && <span className="sb-table-bar" />}
             <span className={`sb-table-dot ${t.active ? "" : "dormant"}`} style={{ background: t.active ? "var(--mac-green)" : "var(--mac-gray)" }} />
             <span className="sb-table-name" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
             {t.active && <span style={{ fontSize: 10, color: active ? "#fff" : "var(--mac-green)", fontWeight: 600 }}>{t.active_count} on</span>}
-          </div>
+          </button>
         );
       })}
 
