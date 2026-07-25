@@ -1,5 +1,5 @@
-# Frontend ESLint configuration
-# This extends react-app defaults and adds import/a11y rules.
+// Frontend ESLint configuration
+// This extends react-app defaults and adds import/a11y rules.
 module.exports = {
   root: true,
   env: {

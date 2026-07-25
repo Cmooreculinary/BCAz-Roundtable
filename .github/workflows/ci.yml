@@ -34,9 +34,11 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r requirements.txt -r requirements-dev.txt
       - name: Lint (ruff)
-        run: ruff check . || true
+        run: ruff check .
+        continue-on-error: true
       - name: Format check (black)
-        run: black --check . || true
+        run: black --check .
+        continue-on-error: true
       - name: Start local HTTPS API
         run: |
           openssl req -x509 -newkey rsa:2048 -nodes \
@@ -74,7 +76,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --include=dev
       - name: Lint (ESLint)
-        run: npm run lint --if-present || true
+        run: npm run lint --if-present
+        continue-on-error: true
       - name: Run frontend tests
         run: |
           set -o pipefail
