@@ -86,7 +86,7 @@ jobs:
           CI: "true"
       - name: Upload frontend test diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-test-diagnostics
           path: /tmp/roundtable-frontend-tests.log
