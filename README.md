@@ -100,6 +100,56 @@ Tables can be set to any combination of:
 
 ---
 
+## Development & Quality Gates
+
+### CI Workflows
+
+| Workflow | Trigger | Jobs |
+|----------|---------|------|
+| **Launch Gate** (`ci.yml`) | push/PR to `main` | Backend tests (pytest), Frontend tests + build |
+| **CodeQL** (`codeql.yml`) | push/PR to `main`, weekly | Static security analysis (JS + Python) |
+
+### Running Quality Checks Locally
+
+**Frontend (JavaScript — React/CRACO)**
+
+```bash
+cd frontend
+npm ci
+npm run lint         # ESLint — reports warnings/errors
+npm run lint:fix     # ESLint — auto-fixes where possible
+npm run format       # Prettier — formats src/
+npm test             # Jest (via CRACO) — unit tests
+npm run build        # Production build
+```
+
+**Backend (Python — FastAPI)**
+
+```bash
+cd backend
+pip install -r requirements.txt -r requirements-dev.txt
+ruff check .         # Lint
+black --check .      # Format check
+black .              # Format
+pytest               # Run tests
+```
+
+### Automated Updates
+
+[Dependabot](.github/dependabot.yml) runs weekly to open PRs for:
+
+- `npm` packages in `frontend/`
+- `pip` packages in `backend/`
+- GitHub Actions in `.github/workflows/`
+
+### Security
+
+See [SECURITY.md](SECURITY.md) for the vulnerability reporting policy.
+CodeQL static analysis runs on every push to `main` and weekly on a schedule.
+
+---
+
 ## License
 
 Proprietary — All Rights Reserved © Blue Collar Apps
+

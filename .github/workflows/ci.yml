@@ -32,7 +32,11 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: backend/requirements.txt
-      - run: pip install -r requirements.txt pytest==9.0.2
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Lint (ruff)
+        run: ruff check . || true
+      - name: Format check (black)
+        run: black --check . || true
       - name: Start local HTTPS API
         run: |
           openssl req -x509 -newkey rsa:2048 -nodes \
@@ -69,6 +73,8 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --include=dev
+      - name: Lint (ESLint)
+        run: npm run lint --if-present || true
       - name: Run frontend tests
         run: |
           set -o pipefail
@@ -84,3 +90,4 @@ jobs:
           if-no-files-found: error
           retention-days: 3
       - run: npm run build
+
