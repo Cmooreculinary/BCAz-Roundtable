@@ -11,7 +11,10 @@ module.exports = {
     "react-app",
     "react-app/jest",
     "plugin:react/recommended",
-    "plugin:react-hooks/recommended",
+    // react-hooks rules are already provided by "react-app" (via eslint-config-react-app),
+    // which bundles its own eslint-plugin-react-hooks. Adding it again here caused
+    // ESLint to detect two separate installs of the plugin ("couldn't determine the
+    // plugin 'react-hooks' uniquely").
     "plugin:jsx-a11y/recommended",
     "plugin:import/recommended",
   ],
