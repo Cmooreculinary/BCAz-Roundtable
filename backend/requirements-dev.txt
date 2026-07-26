@@ -1,6 +1,6 @@
 # Development-only tools — not required for production
-pytest==9.0.2
-pytest-cov==6.1.0
+pytest==9.1.1
+pytest-cov==7.1.0
 ruff==0.11.9
 black==25.1.0
-pip-audit==2.9.0
+pip-audit==2.10.1
