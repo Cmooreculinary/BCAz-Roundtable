@@ -7,13 +7,17 @@ module.exports = {
     es2022: true,
     node: true,
   },
-  // `react-app` already registers eslint-plugin-{import,react,react-hooks,
-  // jsx-a11y} from its own nested copies. Extending each plugin's recommended
-  // config here loaded a *second* instance of the same plugin, which ESLint
-  // refuses to resolve — it failed `yarn lint` and `yarn build` outright.
-  // The plugins stay registered through react-app; the rules we care about
-  // beyond its defaults are listed explicitly below.
-  extends: ["react-app", "react-app/jest"],
+  extends: [
+    "react-app",
+    "react-app/jest",
+    "plugin:react/recommended",
+    // react-hooks rules are already provided by "react-app" (via eslint-config-react-app),
+    // which bundles its own eslint-plugin-react-hooks. Adding it again here caused
+    // ESLint to detect two separate installs of the plugin ("couldn't determine the
+    // plugin 'react-hooks' uniquely").
+    "plugin:jsx-a11y/recommended",
+    "plugin:import/recommended",
+  ],
   parserOptions: {
     ecmaVersion: "latest",
     sourceType: "module",
