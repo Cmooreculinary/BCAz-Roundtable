@@ -165,7 +165,7 @@ export default function WalkieView({ onVideoCall }) {
           <div style={{ padding: 14 }}>
             <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 12 }}>Choose someone to talk to:</div>
             {online.length === 0 ? (
-              <div style={{ fontSize: 13, color: "var(--text-tertiary)", textAlign: "center", padding: "30px 0" }}>Nobody's online right now</div>
+              <div style={{ fontSize: 13, color: "var(--text-tertiary)", textAlign: "center", padding: "30px 0" }}>Nobody&apos;s online right now</div>
             ) : online.map((member) => (
               <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 8, borderBottom: "1px solid var(--border-light)" }}>
                 <button

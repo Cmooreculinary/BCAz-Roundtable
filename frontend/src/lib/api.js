@@ -1,4 +1,4 @@
-import axios from "axios";
+import { create as createAxiosInstance } from "axios";
 
 export const ACCESS_TOKEN_KEY = "rt-access-token";
 
@@ -53,7 +53,7 @@ export function formatApiError(error, fallback = "Something went wrong. Please t
   return error?.message || fallback;
 }
 
-export const api = axios.create({
+export const api = createAxiosInstance({
   baseURL: API,
   withCredentials: true,
   headers: { "Content-Type": "application/json" },

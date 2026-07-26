@@ -188,7 +188,7 @@ export default function MainShell() {
           mobileOpen={sidebarOpen}
           onMobileClose={() => setSidebarOpen(false)}
         />
-        {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+        {sidebarOpen && <div className="sidebar-backdrop" role="presentation" onClick={() => setSidebarOpen(false)} />}
         <main className="main-content" data-testid="main-content">
           <Routes>
             <Route path="/" element={<Portal tables={tables} notifications={notifications} loadTables={loadTables} loadNotifications={loadNotifications} onOpenInvite={() => openModal("invite", { tables })} onOpenShare={() => openModal("shareItem", { tables })} onCreateTable={() => openModal("createTable")} onNewEvent={() => openModal("newEvent", { tables })} onGoto={nav} />} />

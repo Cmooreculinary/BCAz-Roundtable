@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { api, formatApiErrorDetail } from "../../lib/api";
 import { toast } from "sonner";
@@ -9,6 +9,14 @@ export default function NewEventModal({ tables = [], onClose, onCreated }) {
     table_id: "", description: "", location: "", recurring: "none",
   });
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const submit = async () => {
     if (!form.title.trim()) return toast.error("Title required");
@@ -24,26 +32,30 @@ export default function NewEventModal({ tables = [], onClose, onCreated }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} data-testid="new-event-modal">
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
+    >
+      <div className="modal" role="dialog" aria-modal="true" data-testid="new-event-modal">
         <div style={{ padding: 16, borderBottom: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>New Event</div>
           <button className="btn btn-ghost" onClick={onClose}><X size={16} /></button>
         </div>
         <div style={{ padding: 16 }}>
-          <label style={lbl}>Title</label>
-          <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} data-testid="event-title" style={{ margin: "6px 0 10px" }} />
+          <label style={lbl} htmlFor="new-event-title">Title</label>
+          <input id="new-event-title" className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} data-testid="event-title" style={{ margin: "6px 0 10px" }} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
             <div>
-              <label style={lbl}>Date</label>
-              <input type="date" className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} data-testid="event-date" style={{ marginTop: 6 }} />
+              <label style={lbl} htmlFor="new-event-date">Date</label>
+              <input id="new-event-date" type="date" className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} data-testid="event-date" style={{ marginTop: 6 }} />
             </div>
             <div>
-              <label style={lbl}>Time</label>
-              <input type="time" className="input" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} data-testid="event-time" style={{ marginTop: 6 }} />
+              <label style={lbl} htmlFor="new-event-time">Time</label>
+              <input id="new-event-time" type="time" className="input" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} data-testid="event-time" style={{ marginTop: 6 }} />
             </div>
           </div>
-          <label style={lbl}>Repeats</label>
+          <div style={lbl}>Repeats</div>
           <div style={{ display: "flex", gap: 6, margin: "8px 0 12px" }}>
             {[
               { k: "none", l: "Once" },
@@ -63,15 +75,15 @@ export default function NewEventModal({ tables = [], onClose, onCreated }) {
                 }}>{r.l}</button>
             ))}
           </div>
-          <label style={lbl}>Table (optional)</label>
-          <select className="input" value={form.table_id} onChange={(e) => setForm({ ...form, table_id: e.target.value })} data-testid="event-table" style={{ margin: "6px 0 10px" }}>
+          <label style={lbl} htmlFor="new-event-table">Table (optional)</label>
+          <select id="new-event-table" className="input" value={form.table_id} onChange={(e) => setForm({ ...form, table_id: e.target.value })} data-testid="event-table" style={{ margin: "6px 0 10px" }}>
             <option value="">Personal event</option>
             {tables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
-          <label style={lbl}>Location (optional)</label>
-          <input className="input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} data-testid="event-location" style={{ margin: "6px 0 10px" }} />
-          <label style={lbl}>Description (optional)</label>
-          <textarea className="input" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} data-testid="event-description" style={{ margin: "6px 0 0", fontFamily: "inherit", resize: "vertical" }} />
+          <label style={lbl} htmlFor="new-event-location">Location (optional)</label>
+          <input id="new-event-location" className="input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} data-testid="event-location" style={{ margin: "6px 0 10px" }} />
+          <label style={lbl} htmlFor="new-event-description">Description (optional)</label>
+          <textarea id="new-event-description" className="input" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} data-testid="event-description" style={{ margin: "6px 0 0", fontFamily: "inherit", resize: "vertical" }} />
         </div>
         <div style={{ padding: 14, borderTop: "1px solid var(--border-light)", display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>

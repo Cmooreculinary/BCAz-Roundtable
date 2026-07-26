@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Boxes,
   Check,
@@ -341,9 +341,22 @@ export default function SceneEditorModal({ initial, onSave, onClose }) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="modal-backdrop scene-modal-backdrop" onClick={onClose} data-testid="scene-editor-modal">
-      <div className="modal scene-modal" onClick={(event) => event.stopPropagation()}>
+    <div
+      className="modal-backdrop scene-modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose?.()}
+      data-testid="scene-editor-modal"
+    >
+      <div className="modal scene-modal" role="dialog" aria-modal="true">
         <header className="scene-modal__header">
           <span className="scene-modal__lights" aria-hidden="true"><i /><i /><i /></span>
           <div className="scene-modal__title">

@@ -50,7 +50,7 @@ export default function SmartSuggestions({ tableId, onAdded }) {
       </div>
       {suggestions.length === 0 && !loading && (
         <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-          Tap <b>Ask Claude</b> and I'll suggest 3 upcoming events tailored to this table's purpose.
+          Tap <b>Ask Claude</b> and I&apos;ll suggest 3 upcoming events tailored to this table&apos;s purpose.
         </div>
       )}
       {loading && (

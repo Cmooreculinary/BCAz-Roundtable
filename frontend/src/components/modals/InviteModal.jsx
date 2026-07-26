@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X, Copy, Mail, MessageSquare, Link2 } from "lucide-react";
 import { api, formatApiErrorDetail } from "../../lib/api";
 import { toast } from "sonner";
@@ -11,6 +11,14 @@ export default function InviteModal({ tables = [], defaultTable, onClose }) {
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const generate = async () => {
     if (!tableId) return toast.error("Pick a table");
@@ -32,25 +40,29 @@ export default function InviteModal({ tables = [], defaultTable, onClose }) {
   const copy = () => navigator.clipboard.writeText(code).then(() => toast.success("Copied"));
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} data-testid="invite-modal">
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
+    >
+      <div className="modal" role="dialog" aria-modal="true" data-testid="invite-modal">
         <div style={{ padding: 16, borderBottom: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Invite Someone</div>
           <button className="btn btn-ghost" onClick={onClose}><X size={16} /></button>
         </div>
         <div style={{ padding: 16 }}>
-          <label style={lbl}>Table</label>
-          <select className="input" value={tableId} onChange={(e) => setTableId(e.target.value)} data-testid="invite-table" style={{ margin: "6px 0 10px" }}>
+          <label style={lbl} htmlFor="invite-table-select">Table</label>
+          <select id="invite-table-select" className="input" value={tableId} onChange={(e) => setTableId(e.target.value)} data-testid="invite-table" style={{ margin: "6px 0 10px" }}>
             {tables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
             <div>
-              <label style={lbl}>Guest name</label>
-              <input className="input" value={recipientName} onChange={(e) => setRecipientName(e.target.value)} placeholder="Who is coming?" maxLength={60} data-testid="invite-recipient-name" style={{ marginTop: 6 }} />
+              <label style={lbl} htmlFor="invite-recipient-name-input">Guest name</label>
+              <input id="invite-recipient-name-input" className="input" value={recipientName} onChange={(e) => setRecipientName(e.target.value)} placeholder="Who is coming?" maxLength={60} data-testid="invite-recipient-name" style={{ marginTop: 6 }} />
             </div>
             <div>
-              <label style={lbl}>Email</label>
-              <input type="email" className="input" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} placeholder="guest@example.com" data-testid="invite-recipient-email" style={{ marginTop: 6 }} />
+              <label style={lbl} htmlFor="invite-recipient-email-input">Email</label>
+              <input id="invite-recipient-email-input" type="email" className="input" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} placeholder="guest@example.com" data-testid="invite-recipient-email" style={{ marginTop: 6 }} />
             </div>
           </div>
           <div style={{ fontSize: 11, color: "var(--text-secondary)", margin: "-4px 0 12px", lineHeight: 1.45 }}>
@@ -58,12 +70,12 @@ export default function InviteModal({ tables = [], defaultTable, onClose }) {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
             <div>
-              <label style={lbl}>Max Uses</label>
-              <input type="number" className="input" value={maxUses} onChange={(e) => setMaxUses(e.target.value)} min={1} max={500} data-testid="invite-max-uses" style={{ marginTop: 6 }} />
+              <label style={lbl} htmlFor="invite-max-uses-input">Max Uses</label>
+              <input id="invite-max-uses-input" type="number" className="input" value={maxUses} onChange={(e) => setMaxUses(e.target.value)} min={1} max={500} data-testid="invite-max-uses" style={{ marginTop: 6 }} />
             </div>
             <div>
-              <label style={lbl}>Expires (days)</label>
-              <input type="number" className="input" value={days} onChange={(e) => setDays(e.target.value)} min={1} max={90} data-testid="invite-days" style={{ marginTop: 6 }} />
+              <label style={lbl} htmlFor="invite-days-input">Expires (days)</label>
+              <input id="invite-days-input" type="number" className="input" value={days} onChange={(e) => setDays(e.target.value)} min={1} max={90} data-testid="invite-days" style={{ marginTop: 6 }} />
             </div>
           </div>
           {!code ? (

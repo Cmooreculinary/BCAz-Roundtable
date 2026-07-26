@@ -87,7 +87,7 @@ export default function BadgeUnlock({ unlock, onClose }) {
         </div>
         <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4, letterSpacing: "-0.02em" }}>{tier.name}</div>
         <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8, lineHeight: 1.5 }}>
-          {unlock.invitee_name} just joined. You've now welcomed <b>{unlock.joined_total}</b> {unlock.joined_total === 1 ? "person" : "people"} to the table.
+          {unlock.invitee_name} just joined. You&apos;ve now welcomed <b>{unlock.joined_total}</b> {unlock.joined_total === 1 ? "person" : "people"} to the table.
         </div>
 
         {!shareCode ? (
