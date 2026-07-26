@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
 import TitleBar from "../components/rt/TitleBar";
 import Sidebar from "../components/rt/Sidebar";
 import Dock from "../components/rt/Dock";
@@ -34,7 +33,6 @@ import logger from "../lib/logger";
 const BADGE_THRESHOLDS = [1, 3, 10, 25];
 
 export default function MainShell() {
-  const { user } = useAuth();
   const loc = useLocation();
   const nav = useNavigate();
   const [tables, setTables] = useState([]);

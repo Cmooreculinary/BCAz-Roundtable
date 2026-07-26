@@ -2,9 +2,11 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { api, formatApiErrorDetail } from "../lib/api";
 import RoundTableViz from "../components/rt/RoundTableViz";
+import StageViz from "../components/rt/StageViz";
 import EmptyState from "../components/rt/EmptyState";
+import { TABLE_GESTURES, isStageVenue } from "../lib/scenes";
 import HelpTip from "../components/rt/HelpTip";
-import { Share2, UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare, HeartHandshake, Armchair, Eye, Trash2, Settings2 } from "lucide-react";
+import { UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare, HeartHandshake, Armchair, Trash2, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useRTEvent } from "../lib/realtime";
@@ -187,6 +189,9 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
   }
 
   const live = table.active;
+  // A stage venue has no chairs to claim — the house seats itself, and every
+  // guest drives their own avatar from the action bar.
+  const stageVenue = isStageVenue(table.scene?.room);
   const today = new Date().toISOString().slice(0, 10);
   const prayerCount = (table.items || []).filter((it) => it.type === "prayer" || it.type === "intention").length;
 
@@ -209,7 +214,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
         <div style={{ display: "flex", gap: 8 }}>
           {isOwnerOrAdmin && (
             <button className="btn btn-secondary" onClick={() => setSceneEditorOpen(true)} data-testid="table-edit-scene-btn">
-              <Settings2 size={14} /> Edit Scene
+              <Settings2 size={14} /> Edit Experience
             </button>
           )}
           <button className="btn btn-secondary" onClick={() => onInvite?.(table)} data-testid="table-invite-btn"><Users size={14} /> Invite</button>
@@ -222,7 +227,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
       {/* Table tabs */}
       <div className="tabs" style={{ marginBottom: 14, paddingLeft: 0 }}>
         <div className={`tab ${tab === "table" ? "active" : ""}`} onClick={() => setTab("table")} data-testid="tab-table">
-          <Armchair size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> The Table
+          <Armchair size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> {stageVenue ? "The House" : "The Table"}
         </div>
         <div className={`tab ${tab === "prayers" ? "active" : ""}`} onClick={() => setTab("prayers")} data-testid="tab-prayers">
           <HeartHandshake size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Prayer Wall
@@ -234,19 +239,44 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
         <PrayerWall tableId={id} onShare={() => onShare?.(table)} />
       ) : (
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 14 }} className="table-grid-2col">
-        {/* Left: table visualization */}
+        {/* Left: the room itself — a table with chairs, or a house facing a stage */}
         <div className="card" style={{ padding: 0, overflow: "hidden", minHeight: 560, position: "relative" }}>
-          <RoundTableViz
-            table={table}
-            seats={seats}
-            currentUserId={user?.id}
-            onClaimSeat={claimSeat}
-            onLeaveSeat={leaveSeat}
-            gestures={gestures}
-          />
-          <div data-testid="table-gesture-bar" style={{ position: "absolute", left: "50%", bottom: 14, transform: "translateX(-50%)", zIndex: 4, display: "flex", gap: 5, padding: 6, borderRadius: 14, background: "rgba(13,13,13,.86)", border: "1px solid rgba(255,255,255,.14)", backdropFilter: "blur(12px)", boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}>
-            {GESTURES.map((gesture) => <button key={gesture.id} type="button" onClick={() => sendGesture(gesture.id)} title={gesture.label} aria-label={gesture.label} data-testid={`gesture-${gesture.id}`} style={{ width: 40, height: 38, border: 0, borderRadius: 9, background: gestures[user.id] === gesture.id ? "#EC5B13" : "rgba(255,255,255,.08)", color: "#fff", cursor: "pointer", fontSize: 20 }}>{gesture.mark}</button>)}
-          </div>
+          {stageVenue ? (
+            <StageViz
+              table={table}
+              currentUserId={user?.id}
+              gestures={gestures}
+              onAction={sendGesture}
+            />
+          ) : (
+            <>
+              <RoundTableViz
+                table={table}
+                seats={seats}
+                currentUserId={user?.id}
+                onClaimSeat={claimSeat}
+                onLeaveSeat={leaveSeat}
+                gestures={gestures}
+              />
+              <div className="rt-action-bar" data-testid="table-gesture-bar" role="group" aria-label="Table gestures">
+                {TABLE_GESTURES.map((gesture) => (
+                  <button
+                    key={gesture.id}
+                    type="button"
+                    className={`rt-action${gestures[user.id] === gesture.id ? " is-active" : ""}`}
+                    onClick={() => sendGesture(gesture.id)}
+                    title={gesture.label}
+                    aria-label={gesture.label}
+                    aria-pressed={gestures[user.id] === gesture.id}
+                    data-testid={`gesture-${gesture.id}`}
+                  >
+                    <span aria-hidden="true">{gesture.mark}</span>
+                    {gesture.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Right: Table-scoped panels */}
@@ -364,10 +394,3 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
   );
 }
 
-const GESTURES = [
-  { id: "clap", label: "Clap", mark: "👏" },
-  { id: "arms_folded", label: "Fold arms", mark: "🙅" },
-  { id: "hands_up", label: "Put hands in the air", mark: "🙌" },
-  { id: "fist_raised", label: "Raise one fist", mark: "✊" },
-  { id: "head_down", label: "Put head on the table", mark: "😴" },
-];

@@ -279,7 +279,7 @@ export function sendTalkState(talking) {
 
 // ── Event bus integration ──────────────────────────────
 // Subscribe to WS events for signaling
-const unsubscribe = onRTEvent((evt) => {
+onRTEvent((evt) => {
   if (!evt) return;
   switch (evt.type) {
     case "call_joined":

@@ -58,7 +58,7 @@ jobs:
         env:
           PYTHONPATH: .
           REQUESTS_CA_BUNDLE: /tmp/roundtable-ci.crt
-        run: python -m pytest tests/test_iteration_18.py tests/test_roundtable_api.py tests/test_file_security.py tests/test_cross_origin_auth.py -q
+        run: python -m pytest tests/test_iteration_18.py tests/test_iteration_19.py tests/test_roundtable_api.py tests/test_file_security.py tests/test_cross_origin_auth.py -q
 
   frontend:
     runs-on: ubuntu-latest

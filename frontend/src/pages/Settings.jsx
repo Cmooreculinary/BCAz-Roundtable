@@ -5,6 +5,7 @@ import { api, formatApiErrorDetail } from "../lib/api";
 import { User, Palette, Activity, LogOut, Bell, BellOff, Phone, MessageSquare, Camera, Sparkles, Lock } from "lucide-react";
 import { subscribeToPush, unsubscribeFromPush, isPushSupported, getPushPermission } from "../lib/push";
 import AvatarPicker from "../components/AvatarPicker";
+import { avatarSrc } from "../lib/avatars";
 import { AVATAR_TIERS } from "../lib/scenes";
 import logger from "../lib/logger";
 
@@ -59,7 +60,7 @@ export default function Settings() {
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
           <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setShowAvatarPicker(true)} data-testid="settings-avatar-edit">
             {user?.avatar_url ? (
-              <img src={user.avatar_url} alt="Avatar" style={{ width: 64, height: 64, borderRadius: 16, objectFit: "cover" }} />
+              <img src={avatarSrc(user.avatar_url)} alt="Avatar" style={{ width: 64, height: 64, borderRadius: 16, objectFit: "cover" }} />
             ) : (
               <div className="avatar" style={{ width: 64, height: 64, background: color, fontSize: 22 }}>{(name || user?.name || "?").split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase()}</div>
             )}

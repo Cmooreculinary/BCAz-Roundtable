@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { X, Download, Play, Pause, ChevronLeft, ChevronRight, Monitor, MonitorOff } from "lucide-react";
+import { X, Download, ChevronLeft, ChevronRight, Monitor, MonitorOff } from "lucide-react";
 import { useRTEvent, sendWS } from "../../lib/realtime";
 import { buildFileUrl } from "../../lib/api";
 import { toast } from "sonner";
@@ -19,16 +19,14 @@ export default function FileViewerModal({ item, tableId, onClose, isPresenting, 
   const downloadUrl = fileUrl ? `${fileUrl}${fileUrl.includes("?") ? "&" : "?"}download=true` : "";
 
   const [presenting, setPresenting] = useState(isPresenting || false);
-  const [remoteState, setRemoteState] = useState(presenterData || null);
   const videoRef = useRef(null);
   const [pdfPage, setPdfPage] = useState(1);
-  const [pdfPages, setPdfPages] = useState(1);
+  const [pdfPages] = useState(1);
 
   // Listen for presenter sync events
   useRTEvent((evt) => {
     if (!evt || evt.type !== "present_sync" || evt.table_id !== tableId) return;
     if (presenting) return; // presenter doesn't follow
-    setRemoteState(evt.state);
     if (evt.state?.type === "video" && videoRef.current) {
       if (evt.state.paused && !videoRef.current.paused) videoRef.current.pause();
       if (!evt.state.paused && videoRef.current.paused) videoRef.current.play().catch(() => {});
