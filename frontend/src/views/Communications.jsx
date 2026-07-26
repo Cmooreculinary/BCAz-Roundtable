@@ -18,10 +18,10 @@ export default function Communications({ tables, onVideoCall }) {
       </div>
       <div className="card" style={{ padding: 0, minHeight: 560, overflow: "hidden" }}>
         <div className="tabs">
-          <div className={`tab ${tab === "email" ? "active" : ""}`} onClick={() => setTab("email")} data-testid="hub-tab-email"><Mail size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Email</div>
-          <div className={`tab ${tab === "texts" ? "active" : ""}`} onClick={() => setTab("texts")} data-testid="hub-tab-texts"><MessageSquare size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Texts</div>
-          <div className={`tab ${tab === "chat" ? "active" : ""}`} onClick={() => setTab("chat")} data-testid="hub-tab-chat"><Send size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Chat</div>
-          <div className={`tab ${tab === "walkie" ? "active" : ""}`} onClick={() => setTab("walkie")} data-testid="hub-tab-walkie"><Radio size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Walkie</div>
+          <button type="button" className={`tab ${tab === "email" ? "active" : ""}`} onClick={() => setTab("email")} data-testid="hub-tab-email"><Mail size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Email</button>
+          <button type="button" className={`tab ${tab === "texts" ? "active" : ""}`} onClick={() => setTab("texts")} data-testid="hub-tab-texts"><MessageSquare size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Texts</button>
+          <button type="button" className={`tab ${tab === "chat" ? "active" : ""}`} onClick={() => setTab("chat")} data-testid="hub-tab-chat"><Send size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Chat</button>
+          <button type="button" className={`tab ${tab === "walkie" ? "active" : ""}`} onClick={() => setTab("walkie")} data-testid="hub-tab-walkie"><Radio size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Walkie</button>
         </div>
         {tab === "email" && <EmailPane />}
         {tab === "texts" && <TextsPane />}
@@ -93,10 +93,15 @@ function EmailPane() {
         </div>
         {emails.map((e) => (
           <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 12px", cursor: "pointer", borderBottom: "1px solid var(--border-light)", background: selected?.id === e.id ? "var(--bg-tertiary)" : "transparent", opacity: e.read ? 0.7 : 1 }}>
-            <div style={{ flex: 1, minWidth: 0 }} onClick={() => open(e)} data-testid={`email-item-${e.id}`}>
+            <button
+              type="button"
+              style={{ flex: 1, minWidth: 0, border: 0, background: "none", padding: 0, font: "inherit", textAlign: "inherit", color: "inherit" }}
+              onClick={() => open(e)}
+              data-testid={`email-item-${e.id}`}
+            >
               <div style={{ fontSize: 12, fontWeight: e.read ? 400 : 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.subject}</div>
               <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>{e.from_name}</div>
-            </div>
+            </button>
             <button className="btn btn-ghost" onClick={async () => { await api.delete(`/emails/${e.id}`); toast.success("Email trashed"); load(); }} data-testid={`email-del-${e.id}`} style={{ color: "var(--mac-red)", padding: 2, flexShrink: 0 }}><Trash2 size={11} /></button>
           </div>
         ))}
@@ -109,15 +114,15 @@ function EmailPane() {
               <div style={{ fontSize: 16, fontWeight: 600 }}>New Email</div>
               <button className="btn btn-ghost" onClick={() => setComposing(false)}><X size={14} /></button>
             </div>
-            <label style={lbl}>To</label>
-            <select className="input" value={form.to_user} onChange={(e) => setForm({ ...form, to_user: e.target.value })} data-testid="email-to-select" style={{ margin: "6px 0 10px" }}>
+            <label style={lbl} htmlFor="email-to-select">To</label>
+            <select id="email-to-select" className="input" value={form.to_user} onChange={(e) => setForm({ ...form, to_user: e.target.value })} data-testid="email-to-select" style={{ margin: "6px 0 10px" }}>
               <option value="">Select member…</option>
               {filteredMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
-            <label style={lbl}>Subject</label>
-            <input className="input" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} data-testid="email-subject-input" style={{ margin: "6px 0 10px" }} />
-            <label style={lbl}>Body</label>
-            <textarea className="input" rows={10} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} data-testid="email-body-input" style={{ margin: "6px 0 14px", fontFamily: "inherit", resize: "vertical" }} />
+            <label style={lbl} htmlFor="email-subject-input">Subject</label>
+            <input id="email-subject-input" className="input" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} data-testid="email-subject-input" style={{ margin: "6px 0 10px" }} />
+            <label style={lbl} htmlFor="email-body-input">Body</label>
+            <textarea id="email-body-input" className="input" rows={10} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} data-testid="email-body-input" style={{ margin: "6px 0 14px", fontFamily: "inherit", resize: "vertical" }} />
             <button className="btn btn-primary" onClick={send} data-testid="email-send-btn">Send</button>
           </div>
         ) : selected ? (
@@ -182,13 +187,24 @@ function TextsPane() {
       <div style={{ borderRight: "1px solid var(--border-light)", overflowY: "auto" }}>
         <div style={{ padding: "10px 12px", fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Contacts</div>
         {filteredMembers.map((m) => (
-          <div key={m.id} onClick={() => loadThread(m)} data-testid={`texts-contact-${m.id}`} style={{ padding: 10, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", background: target?.id === m.id ? "var(--bg-tertiary)" : "transparent", borderBottom: "1px solid var(--border-light)" }}>
+          <button
+            type="button"
+            key={m.id}
+            onClick={() => loadThread(m)}
+            data-testid={`texts-contact-${m.id}`}
+            style={{
+              width: "100%", padding: 10, display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+              background: target?.id === m.id ? "var(--bg-tertiary)" : "transparent",
+              borderTop: "none", borderLeft: "none", borderRight: "none", borderBottom: "1px solid var(--border-light)",
+              font: "inherit", textAlign: "inherit", color: "inherit",
+            }}
+          >
             <UserAvatar user={m} size={32} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
               <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>SMS</div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
       <div style={{ display: "flex", flexDirection: "column", minHeight: 520 }}>

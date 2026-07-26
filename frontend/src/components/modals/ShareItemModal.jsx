@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { X, UploadCloud, Image, FileText, Video, Music, Link2, StickyNote, Sheet, Presentation, HeartHandshake, Sparkles, CheckCircle } from "lucide-react";
 import { api, API, formatApiError } from "../../lib/api";
 import { toast } from "sonner";
@@ -26,6 +26,14 @@ export default function ShareItemModal({ tables = [], defaultTable, onClose, onS
   const [dragOver, setDragOver] = useState(false);
   const [fileSelected, setFileSelected] = useState(false);
   const fileRef = useRef();
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const submit = async () => {
     if (!tableId) return toast.error("Pick a table");
@@ -73,19 +81,23 @@ export default function ShareItemModal({ tables = [], defaultTable, onClose, onS
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} data-testid="share-item-modal">
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
+    >
+      <div className="modal" role="dialog" aria-modal="true" data-testid="share-item-modal">
         <div style={{ padding: 16, borderBottom: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Share to the table</div>
           <button className="btn btn-ghost" onClick={onClose}><X size={16} /></button>
         </div>
         <div style={{ padding: 16 }}>
-          <label style={lbl}>Table</label>
-          <select className="input" value={tableId} onChange={(e) => setTableId(e.target.value)} data-testid="share-table" style={{ margin: "6px 0 14px" }}>
+          <label style={lbl} htmlFor="share-table-select">Table</label>
+          <select id="share-table-select" className="input" value={tableId} onChange={(e) => setTableId(e.target.value)} data-testid="share-table" style={{ margin: "6px 0 14px" }}>
             {tables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
 
-          <label style={lbl}>Type</label>
+          <div style={lbl}>Type</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, margin: "8px 0 14px" }}>
             {TYPES.map((t) => (
               <button
@@ -105,32 +117,34 @@ export default function ShareItemModal({ tables = [], defaultTable, onClose, onS
             ))}
           </div>
 
-          <label style={lbl}>Name</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="What do you want to call this?" data-testid="share-name" style={{ margin: "6px 0 10px" }} />
+          <label style={lbl} htmlFor="share-name-input">Name</label>
+          <input id="share-name-input" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="What do you want to call this?" data-testid="share-name" style={{ margin: "6px 0 10px" }} />
 
           {type === "link" && (
             <>
-              <label style={lbl}>URL</label>
-              <input className="input" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" data-testid="share-url" style={{ margin: "6px 0 10px" }} />
+              <label style={lbl} htmlFor="share-url-input">URL</label>
+              <input id="share-url-input" className="input" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" data-testid="share-url" style={{ margin: "6px 0 10px" }} />
             </>
           )}
 
           {type === "note" && (
             <>
-              <label style={lbl}>Note</label>
-              <textarea className="input" rows={5} value={note} onChange={(e) => setNote(e.target.value)} data-testid="share-note" style={{ margin: "6px 0 10px", fontFamily: "inherit", resize: "vertical" }} />
+              <label style={lbl} htmlFor="share-note-input">Note</label>
+              <textarea id="share-note-input" className="input" rows={5} value={note} onChange={(e) => setNote(e.target.value)} data-testid="share-note" style={{ margin: "6px 0 10px", fontFamily: "inherit", resize: "vertical" }} />
             </>
           )}
 
           {(type === "prayer" || type === "intention") && (
             <>
-              <label style={lbl}>{type === "prayer" ? "Prayer Request" : "Intention"}</label>
-              <textarea className="input" rows={5} value={note} onChange={(e) => setNote(e.target.value)} placeholder={type === "prayer" ? "What would you like the group to pray for?" : "What is your intention?"} data-testid="share-prayer" style={{ margin: "6px 0 10px", fontFamily: "inherit", resize: "vertical" }} />
+              <label style={lbl} htmlFor="share-prayer-input">{type === "prayer" ? "Prayer Request" : "Intention"}</label>
+              <textarea id="share-prayer-input" className="input" rows={5} value={note} onChange={(e) => setNote(e.target.value)} placeholder={type === "prayer" ? "What would you like the group to pray for?" : "What is your intention?"} data-testid="share-prayer" style={{ margin: "6px 0 10px", fontFamily: "inherit", resize: "vertical" }} />
             </>
           )}
 
           {type !== "link" && type !== "note" && type !== "prayer" && type !== "intention" && (
             <div
+              role="button"
+              tabIndex={0}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
@@ -142,6 +156,12 @@ export default function ShareItemModal({ tables = [], defaultTable, onClose, onS
                 transition: "all 0.2s",
               }}
               onClick={() => fileRef.current?.click()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  fileRef.current?.click();
+                }
+              }}
               data-testid="share-drop"
             >
               {fileSelected ? <CheckCircle size={28} color="var(--mac-green)" style={{ marginBottom: 8 }} /> : <UploadCloud size={28} color={dragOver ? "var(--mac-blue)" : "var(--text-tertiary)"} style={{ marginBottom: 8 }} />}

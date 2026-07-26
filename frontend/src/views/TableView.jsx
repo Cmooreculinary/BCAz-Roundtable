@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { api, formatApiErrorDetail } from "../lib/api";
 import RoundTableViz from "../components/rt/RoundTableViz";
 import StageViz from "../components/rt/StageViz";
@@ -15,7 +15,6 @@ import PrayerWall from "../components/PrayerWall";
 import FileViewerModal from "../components/modals/FileViewerModal";
 import SceneEditorModal from "../components/modals/SceneEditorModal";
 import UserAvatar from "../components/UserAvatar";
-import { useNavigate } from "react-router-dom";
 import logger from "../lib/logger";
 
 export default function TableView({ onShare, onInvite, onVideoCall }) {
@@ -226,13 +225,13 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
 
       {/* Table tabs */}
       <div className="tabs" style={{ marginBottom: 14, paddingLeft: 0 }}>
-        <div className={`tab ${tab === "table" ? "active" : ""}`} onClick={() => setTab("table")} data-testid="tab-table">
+        <button type="button" className={`tab ${tab === "table" ? "active" : ""}`} onClick={() => setTab("table")} data-testid="tab-table">
           <Armchair size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> {stageVenue ? "The House" : "The Table"}
-        </div>
-        <div className={`tab ${tab === "prayers" ? "active" : ""}`} onClick={() => setTab("prayers")} data-testid="tab-prayers">
+        </button>
+        <button type="button" className={`tab ${tab === "prayers" ? "active" : ""}`} onClick={() => setTab("prayers")} data-testid="tab-prayers">
           <HeartHandshake size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Prayer Wall
           {prayerCount > 0 && <span className="tab-badge" style={{ background: "var(--mac-purple)" }}>{prayerCount}</span>}
-        </div>
+        </button>
       </div>
 
       {tab === "prayers" ? (
@@ -303,7 +302,20 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
             {(!table.items || table.items.length === 0) ? (
               <EmptyState icon={<UploadCloud size={28} />} title="This table is empty" subtitle="Share something to get it started." action={<button className="btn btn-primary" onClick={() => onShare?.(table)} data-testid="table-items-empty-share">Share Item</button>} testId="table-items-empty" />
             ) : table.items.slice(0, 6).map((it) => (
-              <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-light)", cursor: it.url ? "pointer" : "default" }} onClick={() => it.url && setViewingItem(it)} data-testid={`table-item-${it.id}`}>
+              <div
+                key={it.id}
+                role="button"
+                tabIndex={0}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-light)", cursor: it.url ? "pointer" : "default" }}
+                onClick={() => it.url && setViewingItem(it)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    if (it.url) setViewingItem(it);
+                  }
+                }}
+                data-testid={`table-item-${it.id}`}
+              >
                 <div style={{ width: 30, height: 30, borderRadius: 8, background: table.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {it.type === "photo" ? <Image size={14} /> : <FileText size={14} />}
                 </div>

@@ -241,7 +241,8 @@ function PeerVideo({ peerId, stream, isAudioOnly }) {
           <Mic size={28} />
         </div>
         {/* Hidden audio element */}
-        <audio ref={videoRef} autoPlay playsInline style={{ display: "none" }} />
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption -- live peer audio stream, no caption track available */}
+        <audio ref={videoRef} autoPlay style={{ display: "none" }} />
       </div>
     );
   }
@@ -250,6 +251,7 @@ function PeerVideo({ peerId, stream, isAudioOnly }) {
     <div style={{
       position: "relative", background: "#111", borderRadius: 8, overflow: "hidden", minHeight: 200,
     }}>
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- live peer video stream, no caption track available */}
       <video
         ref={videoRef}
         autoPlay playsInline

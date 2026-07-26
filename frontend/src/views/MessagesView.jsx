@@ -128,7 +128,15 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
               return (
                 <div
                   key={m.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => open(m)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      open(m);
+                    }
+                  }}
                   data-testid={`messages-person-${m.id}`}
                   style={{
                     padding: "12px 14px", display: "flex", alignItems: "center", gap: 12,
