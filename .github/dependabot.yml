@@ -4,19 +4,50 @@ updates:
     directory: "/frontend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "javascript"
+    groups:
+      eslint:
+        patterns:
+          - "eslint*"
+          - "@eslint/*"
+        update-types:
+          - "minor"
+          - "patch"
+      react:
+        patterns:
+          - "react*"
+        update-types:
+          - "minor"
+          - "patch"
+      misc-minor-patch:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "eslint*"
+          - "@eslint/*"
+          - "react*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
       - "python"
+    groups:
+      python-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
