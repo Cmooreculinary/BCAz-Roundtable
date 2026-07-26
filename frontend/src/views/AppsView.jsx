@@ -68,7 +68,6 @@ export default function AppsView() {
           <div
             key={`${a.name}-${a.vendor}-${i}`}
             role="listitem"
-            aria-disabled="true"
             className="app-tile"
             data-testid={`app-${a.name}-${a.vendor}`}
             style={{

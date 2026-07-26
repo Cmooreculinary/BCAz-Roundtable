@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 
 import AvatarPicker from "../components/AvatarPicker";
+import { avatarSrc } from "../lib/avatars";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../lib/api";
 import {
@@ -272,7 +273,7 @@ export default function Onboarding() {
               aria-label="Choose an avatar"
             >
               {avatarUrl ? (
-                <img src={avatarUrl} alt="Selected avatar" />
+                <img src={avatarSrc(avatarUrl)} alt="Selected avatar" />
               ) : (
                 <span className="avatar" style={{ background: color }}>
                   {(name || "?").split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase()}
@@ -292,6 +293,9 @@ export default function Onboarding() {
                 minLength={2}
                 maxLength={50}
                 required
+                // Each onboarding step owns the whole screen and this is its only
+                // field — focusing it is the expected behaviour, not a trap.
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
                 spellCheck="false"
                 {...NO_CONTACT_AUTOFILL}
@@ -401,6 +405,9 @@ export default function Onboarding() {
                 onChange={(event) => setTableName(event.target.value)}
                 maxLength={60}
                 required
+                // Each onboarding step owns the whole screen and this is its only
+                // field — focusing it is the expected behaviour, not a trap.
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
                 spellCheck="false"
                 {...NO_CONTACT_AUTOFILL}

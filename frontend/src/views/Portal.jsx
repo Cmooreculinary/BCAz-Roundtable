@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import EmptyState from "../components/rt/EmptyState";
-import HelpTip from "../components/rt/HelpTip";
-import { Calendar, FileText, Users, Zap, Share2, Bell, Plus, UploadCloud, Mail, MessageSquare, Radio, ChevronRight, Award, Inbox, Send, Star, AlertCircle, X, Trash2, Sparkles } from "lucide-react";
+import { Calendar, FileText, Users, Zap, Share2, Bell, Plus, UploadCloud, MessageSquare, Radio, ChevronRight, Award, Inbox, AlertCircle, X, Trash2, Sparkles } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -13,7 +12,6 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
   const [events, setEvents] = useState([]);
   const [referrals, setReferrals] = useState({ invited: 0, joined: 0, badge: "No badge yet" });
   const [leaderboard, setLeaderboard] = useState([]);
-  const [commsTab, setCommsTab] = useState("email");
   const [dismissedReminder, setDismissedReminder] = useState(false);
 
   useEffect(() => {

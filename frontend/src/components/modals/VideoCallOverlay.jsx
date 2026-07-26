@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Users, Maximize2, Minimize2 } from "lucide-react";
-import { useRTEvent } from "../../lib/realtime";
 import {
-  startCall, joinCall, leaveCall, isInCall, getCallId,
+  startCall, joinCall, leaveCall,
   getLocalStream, getPeers, onCallStateChange,
   toggleMute, toggleCamera, getCallType,
 } from "../../lib/webrtc";
@@ -13,7 +12,6 @@ export default function VideoCallOverlay({ target, incomingCallId, callType: pro
   const [camOff, setCamOff] = useState(false);
   const [connecting, setConnecting] = useState(true);
   const [peerStreams, setPeerStreams] = useState(new Map());
-  const [participants, setParticipants] = useState([]);
   const [expanded, setExpanded] = useState(false);
   const localVideoRef = useRef(null);
   const mountedRef = useRef(true);
@@ -66,7 +64,6 @@ export default function VideoCallOverlay({ target, incomingCallId, callType: pro
         ));
       }
       if (event === "peer_joined" || event === "peer_left") {
-        setParticipants(data.participants || []);
         setPeerStreams(new Map(
           Array.from(getPeers().entries()).map(([id, { streams }]) => [id, streams[0] || null])
         ));

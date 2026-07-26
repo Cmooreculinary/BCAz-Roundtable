@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Radio, Phone, X } from "lucide-react";
 
 function beep(freq = 880, dur = 0.18) {

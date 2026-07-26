@@ -40,5 +40,17 @@ module.exports = {
     "react/prop-types": "off",         // PropTypes not required in this codebase
     "import/no-unresolved": "off",     // Path aliases handled by craco/jsconfig
     "jsx-a11y/no-autofocus": "warn",
+    "jsx-a11y/alt-text": "warn",
+    "jsx-a11y/anchor-is-valid": "warn",
+    "jsx-a11y/aria-props": "error",
+    "jsx-a11y/aria-role": "error",
+    "jsx-a11y/role-has-required-aria-props": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    // These suites drive React with react-dom/client directly, not Testing
+    // Library. The plugin reads `root.render(...)` as a TL util and flags every
+    // `act()` wrapper — wrappers that are required with this API, not optional.
+    "testing-library/no-unnecessary-act": "off",
+    "testing-library/no-render-in-setup": "off",
   },
 };

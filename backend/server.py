@@ -487,7 +487,9 @@ class UserUpdateIn(BaseModel):
 # Iteration 18 — Scene model for /table/:id pages.
 # Stores only string IDs; frontend resolves IDs to visuals via lib/scenes.js.
 # Allowed values must align with /app/frontend/src/lib/scenes.js.
-ROOM_IDS = ("library", "skyline", "dining", "studio", "church", "terrace")
+# Table rooms seat guests around a table; stage venues seat an audience
+# facing a speaker. Both are stored in the same `room` field.
+ROOM_IDS = ("library", "skyline", "dining", "studio", "church", "terrace", "theatre", "redrocks", "arena")
 TABLE_IDS = ("mahogany", "executive", "family", "drafting", "luncheon", "strategy")
 TABLETOP_IDS = ("meeting", "coffee", "luncheon", "formal", "planning", "chef")
 FOOD_IDS = ("none", "coffee", "snacks", "hors", "lunch", "dinner", "chef")
@@ -512,7 +514,10 @@ DEFAULT_SCENE = {
 
 
 class SceneIn(BaseModel):
-    room: Literal["library", "skyline", "dining", "studio", "church", "terrace"] = "library"
+    room: Literal[
+        "library", "skyline", "dining", "studio", "church", "terrace",
+        "theatre", "redrocks", "arena",
+    ] = "library"
     table: Literal["mahogany", "executive", "family", "drafting", "luncheon", "strategy"] = "mahogany"
     tabletop: Literal["meeting", "coffee", "luncheon", "formal", "planning", "chef"] = "meeting"
     food: Literal["none", "coffee", "snacks", "hors", "lunch", "dinner", "chef"] = "none"
@@ -541,7 +546,9 @@ class SeatClaimIn(BaseModel):
 
 
 class TableGestureIn(BaseModel):
-    gesture: Literal["clap", "arms_folded", "hands_up", "fist_raised", "head_down"]
+    # "stand" is the standing ovation available in stage venues; the rest are
+    # playable from a chair at a table or a seat in the house.
+    gesture: Literal["clap", "arms_folded", "hands_up", "fist_raised", "head_down", "stand"]
 
 
 class SharedItemIn(BaseModel):

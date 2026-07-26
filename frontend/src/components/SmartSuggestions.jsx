@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { api } from "../lib/api";
 import { Sparkles, Plus, Calendar } from "lucide-react";
 import { toast } from "sonner";
@@ -6,14 +6,12 @@ import { toast } from "sonner";
 export default function SmartSuggestions({ tableId, onAdded }) {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
-  const [purpose, setPurpose] = useState(null);
 
   const load = async () => {
     setLoading(true);
     try {
       const { data } = await api.post(`/tables/${tableId}/suggest-events`);
       setSuggestions(data.suggestions || []);
-      setPurpose(data.purpose);
       if (!data.suggestions?.length) {
         toast.message("No AI suggestions available right now.");
       }

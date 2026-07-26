@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { api } from "../lib/api";
-import { Search, Send, Paperclip, Phone, Video, Trash2, MoreHorizontal } from "lucide-react";
+import { Search, Send, Paperclip, Phone, Video, Trash2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { useRTEvent } from "../lib/realtime";

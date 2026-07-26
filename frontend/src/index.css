@@ -52,6 +52,16 @@
   --shadow-xl: 0 20px 60px rgba(0,0,0,0.16);
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", "IBM Plex Mono", Menlo, monospace;
+
+  /* Roundtable gold — the accent of the venues, and now of every action that
+     takes you into one. Semantic colors (green/red/amber) are untouched. */
+  --rt-gold: #E3B778;
+  --rt-gold-deep: #C9954E;
+  --rt-gold-lift: #F0CE95;
+  --rt-gold-ink: #1A1206;
+  --rt-gold-line: rgba(201, 149, 78, 0.38);
+  --rt-gold-wash: rgba(227, 183, 120, 0.14);
 }
 
 .dark {
@@ -70,6 +80,8 @@
   --glass-stroke: rgba(255,255,255,0.08);
   --wood: linear-gradient(135deg, #8b5f3a 0%, #6b4526 40%, #42280f 100%);
   --wood-dormant: linear-gradient(135deg, #3e3a35 0%, #2e2b28 60%, #1f1d1b 100%);
+  --rt-gold-line: rgba(227, 183, 120, 0.3);
+  --rt-gold-wash: rgba(227, 183, 120, 0.12);
 }
 
 html, body, #root {
@@ -96,12 +108,12 @@ body {
 }
 
 /* Text selection */
-::selection { background: rgba(0,122,255,0.25); color: inherit; }
+::selection { background: rgba(227,183,120,0.35); color: inherit; }
 
-/* Focus ring — glowing blue with spring */
+/* Focus ring — the venue key light, with spring */
 :focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(0,122,255,0.5), 0 0 8px rgba(0,122,255,0.15);
+  box-shadow: 0 0 0 2px rgba(227,183,120,0.65), 0 0 10px rgba(227,183,120,0.25);
   border-radius: var(--radius-sm);
   transition: box-shadow 0.2s var(--spring);
 }
@@ -188,15 +200,16 @@ a[href^="tel:"]:hover, a[href^="sms:"]:hover {
   transition: background-color 0.15s, color 0.15s, transform 0.2s var(--spring), box-shadow 0.2s;
   position: relative;
 }
-.sb-item:hover { background: rgba(120,120,128,0.12); transform: translateY(-1px); }
+.sb-item:hover { background: var(--rt-gold-wash); transform: translateY(-1px); }
 .sb-item:active { transform: scale(0.97); }
 .sb-item.active {
-  background: var(--mac-blue); color: #fff;
-  box-shadow: 0 2px 8px rgba(0,122,255,0.2);
+  background: linear-gradient(180deg, var(--rt-gold-lift), var(--rt-gold-deep));
+  color: var(--rt-gold-ink); font-weight: 600;
+  box-shadow: 0 4px 12px rgba(201,149,78,0.28);
 }
-.sb-item.active .sb-icon { color: #fff; }
+.sb-item.active .sb-icon { color: var(--rt-gold-ink); }
 .sb-icon { color: var(--text-secondary); display: inline-flex; width: 18px; justify-content: center; }
-.sb-item.active .sb-icon { color: #fff; }
+.sb-item.active .sb-icon { color: var(--rt-gold-ink); }
 
 .sb-table-item {
   display: flex; align-items: center; gap: 10px;
@@ -208,7 +221,7 @@ a[href^="tel:"]:hover, a[href^="sms:"]:hover {
 }
 .sb-table-item:hover { background: rgba(120,120,128,0.12); transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
 .sb-table-item:active { transform: scale(0.97); }
-.sb-table-item.active { background: var(--mac-blue); color: #fff; }
+.sb-table-item.active { background: var(--rt-gold-wash); border: 1px solid var(--rt-gold-line); color: var(--text-primary); font-weight: 600; }
 .sb-table-dot {
   width: 8px; height: 8px; border-radius: 50%;
   flex-shrink: 0;
@@ -298,35 +311,65 @@ a[href^="tel:"]:hover, a[href^="sms:"]:hover {
 .card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   transition: background-color 0.4s var(--ease-out), border-color 0.3s, box-shadow 0.3s var(--spring), transform 0.2s var(--spring);
 }
 .card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
 
-/* ---------- Buttons ---------- */
+/* ---------- Buttons ----------
+   One shape for every control in the app, matching the venue surfaces: a
+   10px radius, a hairline gold edge, and a single gold gradient reserved for
+   the primary action on a screen. */
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 8px 14px; border-radius: var(--radius-sm);
-  font-size: 13px; font-weight: 500;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 36px;
+  padding: 9px 16px; border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 13px; font-weight: 600; letter-spacing: 0.005em;
   cursor: pointer; border: 1px solid transparent;
-  transition: transform 0.15s var(--spring), background-color 0.2s, box-shadow 0.2s, filter 0.2s;
+  transition: transform 0.15s var(--spring), background-color 0.2s, border-color 0.2s, box-shadow 0.2s, filter 0.2s;
   user-select: none;
 }
 .btn:hover { transform: translateY(-1px); }
-.btn:active { transform: scale(0.97); }
-.btn-primary { background: var(--mac-blue); color: #fff; }
-.btn-primary:hover { filter: brightness(1.08); box-shadow: 0 4px 14px rgba(0,122,255,0.28); }
-.btn-primary:active { box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); filter: brightness(0.95); }
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--rt-gold-lift) 0%, var(--rt-gold-deep) 100%);
+  border-color: rgba(255, 232, 194, 0.45);
+  color: var(--rt-gold-ink);
+  box-shadow: 0 6px 18px rgba(201, 149, 78, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.btn-primary:hover { filter: brightness(1.06); box-shadow: 0 10px 26px rgba(201, 149, 78, 0.38), inset 0 1px 0 rgba(255,255,255,0.4); }
+.btn-primary:active { box-shadow: inset 0 2px 5px rgba(90, 60, 20, 0.35); filter: brightness(0.96); }
+
 .btn-secondary {
   background: var(--bg-secondary); color: var(--text-primary);
   border-color: var(--border-color);
 }
-.btn-secondary:hover { background: var(--bg-tertiary); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
-.btn-ghost { background: transparent; color: var(--text-primary); }
-.btn-ghost:hover { background: rgba(120,120,128,0.12); }
-.btn-danger { background: var(--mac-red); color: #fff; }
-.btn-danger:hover { filter: brightness(1.08); box-shadow: 0 4px 14px rgba(255,59,48,0.28); }
+.btn-secondary:hover { border-color: var(--rt-gold-line); background: var(--bg-tertiary); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+
+.btn-ghost { background: transparent; color: var(--text-primary); border-color: transparent; }
+.btn-ghost:hover { background: var(--rt-gold-wash); border-color: var(--rt-gold-line); }
+
+.btn-danger { background: var(--mac-red); color: #fff; border-color: rgba(255,255,255,0.16); }
+.btn-danger:hover { filter: brightness(1.08); box-shadow: 0 6px 18px rgba(255,59,48,0.3); }
+
+/* Dark surfaces (venue studio, avatar picker) get the same buttons, keyed to
+   the room rather than the page. */
+.scene-modal .btn-secondary,
+.avatar-picker-dialog .btn-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(227, 183, 120, 0.22);
+  color: #f2e7d5;
+}
+.scene-modal .btn-secondary:hover,
+.avatar-picker-dialog .btn-secondary:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--rt-gold); }
+.scene-modal .btn-ghost,
+.avatar-picker-dialog .btn-ghost { color: #a4937c; }
+.scene-modal .btn-ghost:hover,
+.avatar-picker-dialog .btn-ghost:hover { color: #f2e7d5; }
 
 /* ---------- Inputs ---------- */
 .input {
@@ -334,14 +377,14 @@ a[href^="tel:"]:hover, a[href^="sms:"]:hover {
   padding: 9px 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 13px;
   outline: none;
   font-family: var(--font-sans);
   transition: border-color 0.2s var(--spring), box-shadow 0.2s var(--spring);
 }
-.input:focus { border-color: var(--mac-blue); box-shadow: 0 0 0 3px rgba(0,122,255,0.15), 0 0 8px rgba(0,122,255,0.08); }
+.input:focus { border-color: var(--rt-gold-deep); box-shadow: 0 0 0 3px rgba(227,183,120,0.2); }
 
 /* ---------- Table Visualization ---------- */
 .rt-stage {
@@ -570,7 +613,7 @@ a[href^="tel:"]:hover, a[href^="sms:"]:hover {
   background: var(--border-color);
   transition: background-color 0.25s ease;
 }
-.onboard-progress span.done { background: var(--mac-blue); }
+.onboard-progress span.done { background: var(--rt-gold-deep); }
 
 /* ---------- Badges ---------- */
 .badge {
@@ -583,23 +626,31 @@ a[href^="tel:"]:hover, a[href^="sms:"]:hover {
 .badge.green { background: rgba(52,199,89,0.12); color: var(--mac-green); border-color: rgba(52,199,89,0.2); }
 .badge.red { background: rgba(255,59,48,0.12); color: var(--mac-red); border-color: rgba(255,59,48,0.2); }
 .badge.blue { background: rgba(0,122,255,0.12); color: var(--mac-blue); border-color: rgba(0,122,255,0.2); }
+.badge.gold { background: var(--rt-gold-wash); color: var(--rt-gold-deep); border-color: var(--rt-gold-line); }
 .badge.orange { background: rgba(255,149,0,0.12); color: var(--mac-orange); border-color: rgba(255,149,0,0.2); }
 
 /* ---------- Tabs ---------- */
 .tabs {
-  display: flex; gap: 4px; border-bottom: 1px solid var(--border-light);
-  padding: 0 16px;
+  display: flex; gap: 4px; flex-wrap: wrap;
+  padding: 5px; border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
 }
 .tab {
   position: relative;
-  padding: 10px 14px; font-size: 13px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 15px; font-size: 13px; font-weight: 500;
   color: var(--text-secondary); cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
-.tab:hover { color: var(--text-primary); }
-.tab.active { color: var(--mac-blue); border-bottom-color: var(--mac-blue); font-weight: 600; }
+.tab:hover { color: var(--text-primary); background: var(--rt-gold-wash); }
+.tab.active {
+  color: var(--rt-gold-deep); font-weight: 600;
+  border-color: var(--rt-gold-line);
+  background: var(--rt-gold-wash);
+}
 .tab-badge {
   margin-left: 6px; background: var(--mac-red); color: #fff;
   font-size: 9px; font-weight: 700;
@@ -653,7 +704,7 @@ a[href^="tel:"]:hover, a[href^="sms:"]:hover {
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .cal-cell:hover { background: var(--bg-tertiary); }
-.cal-cell.today { border-color: var(--mac-blue); }
+.cal-cell.today { border-color: var(--rt-gold-deep); box-shadow: inset 0 0 0 1px var(--rt-gold-line); }
 .cal-cell.other-month { opacity: 0.45; }
 .cal-event-dot {
   display: inline-block; width: 5px; height: 5px; border-radius: 50%;

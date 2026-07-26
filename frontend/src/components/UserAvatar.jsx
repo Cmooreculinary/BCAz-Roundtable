@@ -1,7 +1,9 @@
 import React from "react";
+import { avatarSrc } from "../lib/avatars";
 
 /**
- * Renders user avatar — DiceBear image if avatar_url exists, initials fallback.
+ * Renders user avatar — a generated roundtable portrait or a stored image URL
+ * if one exists, initials fallback otherwise.
  * Drop-in replacement for the inline .avatar divs used throughout the app.
  */
 export default function UserAvatar({ user, size = 32, fontSize, style = {}, className = "" }) {
@@ -9,7 +11,7 @@ export default function UserAvatar({ user, size = 32, fontSize, style = {}, clas
   const fs = fontSize || Math.round(s * 0.38);
   const initials = user?.initials || (user?.name || "?").split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
   const color = user?.color || "#007AFF";
-  const avatarUrl = user?.avatar_url;
+  const avatarUrl = avatarSrc(user?.avatar_url);
 
   if (avatarUrl) {
     return (
