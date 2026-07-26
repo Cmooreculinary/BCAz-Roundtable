@@ -47,7 +47,15 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
 
       {/* Gather Experience launcher — investor demo */}
       <div
+        role="button"
+        tabIndex={0}
         onClick={() => onGoto("/gather")}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onGoto("/gather");
+          }
+        }}
         data-testid="portal-gather-launcher"
         style={{
           position: "relative",
@@ -95,12 +103,24 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
             {tables.map((t) => (
-              <div key={t.id} onClick={() => onGoto(`/table/${t.id}`)} data-testid={`portal-table-${t.id}`} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
-                background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", cursor: "pointer",
-                border: "1px solid var(--border-light)",
-                transition: "transform 0.2s var(--spring), box-shadow 0.2s",
-              }}>
+              <div
+                key={t.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => onGoto(`/table/${t.id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onGoto(`/table/${t.id}`);
+                  }
+                }}
+                data-testid={`portal-table-${t.id}`}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+                  background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", cursor: "pointer",
+                  border: "1px solid var(--border-light)",
+                  transition: "transform 0.2s var(--spring), box-shadow 0.2s",
+                }}>
                 <div style={{ width: 42, height: 42, borderRadius: "50%", background: t.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, flexShrink: 0 }}>
                   {(t.name[0] || "?").toUpperCase()}
                 </div>
@@ -176,7 +196,7 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
           </div>
         }>
           {recentNotifications.length === 0 ? (
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", padding: "8px 0" }}>No notifications. When things happen, you'll see them here.</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", padding: "8px 0" }}>No notifications. When things happen, you&apos;ll see them here.</div>
           ) : recentNotifications.map((n) => (
             <div key={n.id} style={{ display: "flex", alignItems: "start", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-light)" }}>
               <div className="avatar" style={{ width: 24, height: 24, background: n.from_color || "#8E8E93", fontSize: 9, marginTop: 1 }}>{n.from_initials || "?"}</div>
@@ -276,7 +296,7 @@ function CommsHub() {
   }, []);
 
   const TabBadge = ({ label, count, tabKey }) => (
-    <div className={`tab ${tab === tabKey ? "active" : ""}`} onClick={() => setTab(tabKey)} data-testid={`comms-tab-${tabKey}`} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+    <button type="button" className={`tab ${tab === tabKey ? "active" : ""}`} onClick={() => setTab(tabKey)} data-testid={`comms-tab-${tabKey}`} style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <span>{label}</span>
       {count > 0 && (
         <span style={{
@@ -285,7 +305,7 @@ function CommsHub() {
           fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center",
         }}>{count}</span>
       )}
-    </div>
+    </button>
   );
 
   return (

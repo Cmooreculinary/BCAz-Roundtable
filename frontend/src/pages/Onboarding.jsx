@@ -422,7 +422,7 @@ export default function Onboarding() {
               testPrefix="onboard-table-color"
             />
 
-            <label className="onboard-checkbox" htmlFor="onboard-table-active">
+            <label className="onboard-checkbox" aria-label="Make this table live">
               <input
                 id="onboard-table-active"
                 type="checkbox"

@@ -128,6 +128,7 @@ export default function FileViewerModal({ item, tableId, onClose, isPresenting, 
         )}
 
         {category === "video" && (
+          // eslint-disable-next-line jsx-a11y/media-has-caption -- user-uploaded video, no caption track available
           <video
             ref={videoRef}
             src={fileUrl}

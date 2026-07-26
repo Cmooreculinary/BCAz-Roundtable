@@ -100,6 +100,8 @@ export default function CallHistoryView({ onVideoCall }) {
             return (
               <div
                 key={call.call_id || idx}
+                role="button"
+                tabIndex={0}
                 style={{
                   display: "flex", alignItems: "center", gap: 12,
                   padding: "12px 16px",
@@ -108,6 +110,12 @@ export default function CallHistoryView({ onVideoCall }) {
                   cursor: "pointer",
                 }}
                 onClick={() => redial(call)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    redial(call);
+                  }
+                }}
                 data-testid={`call-history-item-${call.call_id}`}
               >
                 {/* Avatar */}

@@ -24,7 +24,7 @@ jest.mock("../lib/webrtc", () => ({
   sendTalkState: jest.fn(),
 }));
 
-jest.mock("../components/UserAvatar", () => ({ user }) => <div>{user.name}</div>);
+jest.mock("../components/UserAvatar", () => function MockUserAvatar({ user }) { return <div>{user.name}</div>; });
 jest.mock("../lib/logger", () => ({ error: jest.fn() }));
 jest.mock("sonner", () => ({
   toast: {

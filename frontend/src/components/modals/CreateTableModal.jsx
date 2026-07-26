@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X, Armchair, Home, BookOpen, Heart, Sparkles, Briefcase, Users, Settings2 } from "lucide-react";
 import { api, formatApiErrorDetail } from "../../lib/api";
 import { toast } from "sonner";
@@ -24,6 +24,14 @@ export default function CreateTableModal({ onClose, onCreated }) {
   const [busy, setBusy] = useState(false);
   const [scene, setScene] = useState({ ...DEFAULT_SCENE });
 
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const submit = async () => {
     if (!name.trim()) return toast.error("Name required");
     setBusy(true);
@@ -39,10 +47,15 @@ export default function CreateTableModal({ onClose, onCreated }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
+    >
       <div
         className="modal create-table-modal"
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
         data-testid="create-table-modal"
         style={{ maxWidth: 1080, maxHeight: "94vh", overflowY: "auto", borderRadius: 18 }}
       >
@@ -85,7 +98,7 @@ export default function CreateTableModal({ onClose, onCreated }) {
 
         <div style={{ padding: "22px 22px 10px" }}>
           {/* Purpose */}
-          <label style={lbl}>What's this table for?</label>
+          <div style={lbl}>What&apos;s this table for?</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, margin: "10px 0 18px" }}>
             {PURPOSES.map((p) => {
               const selected = purpose === p.key;
@@ -126,8 +139,9 @@ export default function CreateTableModal({ onClose, onCreated }) {
           </div>
 
           {/* Name */}
-          <label style={lbl}>Name</label>
+          <label style={lbl} htmlFor="create-table-name">Name</label>
           <input
+            id="create-table-name"
             className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -138,7 +152,7 @@ export default function CreateTableModal({ onClose, onCreated }) {
           />
 
           {/* Color */}
-          <label style={lbl}>Accent color</label>
+          <div style={lbl}>Accent color</div>
           <div style={{ display: "flex", gap: 10, margin: "10px 0 18px", flexWrap: "wrap" }}>
             {COLORS.map((c) => {
               const selected = color === c;

@@ -221,13 +221,24 @@ function AvatarSeating({ seated, seatAvatar, clearSeats, autoSeat }) {
           {DEMO_AVATARS.map((av) => {
             const isSeated = seated.some((s) => s.id === av.id);
             return (
-              <div key={av.id} onClick={() => !isSeated && seatAvatar(av)} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
-                borderRadius: 12, cursor: isSeated ? "default" : "pointer",
-                background: isSeated ? "rgba(52,199,89,0.12)" : "rgba(255,255,255,0.04)",
-                border: `1px solid ${isSeated ? "rgba(52,199,89,0.3)" : "rgba(255,255,255,0.08)"}`,
-                opacity: isSeated ? 0.6 : 1, transition: "all 0.2s",
-              }} data-testid={`avatar-seat-${av.id}`}>
+              <div
+                key={av.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => !isSeated && seatAvatar(av)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    if (!isSeated) seatAvatar(av);
+                  }
+                }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+                  borderRadius: 12, cursor: isSeated ? "default" : "pointer",
+                  background: isSeated ? "rgba(52,199,89,0.12)" : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${isSeated ? "rgba(52,199,89,0.3)" : "rgba(255,255,255,0.08)"}`,
+                  opacity: isSeated ? 0.6 : 1, transition: "all 0.2s",
+                }} data-testid={`avatar-seat-${av.id}`}>
                 <div style={{ width: 44, height: 44, borderRadius: "50%", background: av.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700 }}>{av.initials}</div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{av.name}</div>
@@ -612,13 +623,25 @@ function CardGrid({ items, selected, onSelect, renderCard }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
       {items.map((item) => (
-        <div key={item.id} onClick={() => onSelect(item)} style={{
-          borderRadius: 14, overflow: "hidden", cursor: "pointer",
-          border: selected?.id === item.id ? "2px solid #007AFF" : "2px solid rgba(255,255,255,0.08)",
-          background: "rgba(255,255,255,0.04)",
-          transition: "border-color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1)",
-          transform: selected?.id === item.id ? "scale(1.02)" : "scale(1)",
-        }}>
+        <div
+          key={item.id}
+          role="button"
+          tabIndex={0}
+          onClick={() => onSelect(item)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onSelect(item);
+            }
+          }}
+          style={{
+            borderRadius: 14, overflow: "hidden", cursor: "pointer",
+            border: selected?.id === item.id ? "2px solid #007AFF" : "2px solid rgba(255,255,255,0.08)",
+            background: "rgba(255,255,255,0.04)",
+            transition: "border-color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+            transform: selected?.id === item.id ? "scale(1.02)" : "scale(1)",
+          }}
+        >
           {renderCard(item, selected?.id === item.id)}
         </div>
       ))}
@@ -628,13 +651,24 @@ function CardGrid({ items, selected, onSelect, renderCard }) {
 
 function RadioPill({ label, selected, onClick, dot }) {
   return (
-    <div onClick={onClick} style={{
-      padding: "8px 12px", borderRadius: 10, cursor: "pointer", fontSize: 12, marginBottom: 4,
-      background: selected ? "rgba(0,122,255,0.15)" : "rgba(255,255,255,0.04)",
-      border: `1px solid ${selected ? "rgba(0,122,255,0.3)" : "rgba(255,255,255,0.06)"}`,
-      color: selected ? "#fff" : "rgba(255,255,255,0.6)",
-      display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s",
-    }}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick?.();
+        }
+      }}
+      style={{
+        padding: "8px 12px", borderRadius: 10, cursor: "pointer", fontSize: 12, marginBottom: 4,
+        background: selected ? "rgba(0,122,255,0.15)" : "rgba(255,255,255,0.04)",
+        border: `1px solid ${selected ? "rgba(0,122,255,0.3)" : "rgba(255,255,255,0.06)"}`,
+        color: selected ? "#fff" : "rgba(255,255,255,0.6)",
+        display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s",
+      }}
+    >
       {dot && <span style={{ width: 8, height: 8, borderRadius: 4, background: dot }} />}
       {label}
     </div>
@@ -692,6 +726,14 @@ function ShareModal({ onClose, initialName }) {
     return name.trim() ? `${base}?for=${encodeURIComponent(name.trim())}` : base;
   }, [name]);
 
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -704,13 +746,16 @@ function ShareModal({ onClose, initialName }) {
   };
 
   return (
-    <div onClick={onClose} style={{
-      position: "fixed", inset: 0, zIndex: 1000,
-      background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      animation: "fadeScaleIn 0.2s ease-out",
-    }} data-testid="gather-share-modal">
-      <div onClick={(e) => e.stopPropagation()} style={{
+    <div
+      role="presentation"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
+      style={{
+        position: "fixed", inset: 0, zIndex: 1000,
+        background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        animation: "fadeScaleIn 0.2s ease-out",
+      }} data-testid="gather-share-modal">
+      <div role="dialog" aria-modal="true" style={{
         width: 460, maxWidth: "92vw", padding: 28, borderRadius: 20,
         background: "linear-gradient(135deg, #1a1a1c 0%, #0f0f10 100%)",
         border: "1px solid rgba(255,255,255,0.1)",
@@ -735,10 +780,11 @@ function ShareModal({ onClose, initialName }) {
         </div>
 
         <div style={{ marginTop: 22 }}>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }} htmlFor="gather-share-name-field">
             Partner / Investor Name (optional)
           </label>
           <input
+            id="gather-share-name-field"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g., Roy, Pastor Dana, Acme Ventures"
@@ -759,9 +805,9 @@ function ShareModal({ onClose, initialName }) {
         </div>
 
         <div style={{ marginTop: 22 }}>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
+          <div style={{ display: "block", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
             Demo URL
-          </label>
+          </div>
           <div style={{
             display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12,
             background: "rgba(0,122,255,0.08)", border: "1px solid rgba(0,122,255,0.25)",

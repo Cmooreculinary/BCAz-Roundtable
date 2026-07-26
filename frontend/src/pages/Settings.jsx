@@ -58,7 +58,12 @@ export default function Settings() {
 
       <div className="card" style={{ padding: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
-          <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setShowAvatarPicker(true)} data-testid="settings-avatar-edit">
+          <button
+            type="button"
+            style={{ position: "relative", cursor: "pointer", border: 0, background: "none", padding: 0, font: "inherit", textAlign: "inherit", color: "inherit" }}
+            onClick={() => setShowAvatarPicker(true)}
+            data-testid="settings-avatar-edit"
+          >
             {user?.avatar_url ? (
               <img src={avatarSrc(user.avatar_url)} alt="Avatar" style={{ width: 64, height: 64, borderRadius: 16, objectFit: "cover" }} />
             ) : (
@@ -71,17 +76,17 @@ export default function Settings() {
             }}>
               <Camera size={10} color="#fff" />
             </div>
-          </div>
+          </button>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{name || user?.name}</div>
             <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{user?.email}</div>
           </div>
         </div>
 
-        <label style={lbl}><User size={11} /> Display Name</label>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} data-testid="settings-name" style={{ margin: "6px 0 16px" }} />
+        <label style={lbl} htmlFor="settings-name-input"><User size={11} /> Display Name</label>
+        <input id="settings-name-input" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} data-testid="settings-name" style={{ margin: "6px 0 16px" }} />
 
-        <label style={lbl}><Palette size={11} /> Seat Color</label>
+        <div style={lbl}><Palette size={11} /> Seat Color</div>
         <div style={{ display: "flex", gap: 8, margin: "8px 0 16px", flexWrap: "wrap" }}>
           {COLORS.map((c) => (
             <button key={c} onClick={() => setColor(c)} data-testid={`settings-color-${c.replace("#", "")}`} style={{
@@ -91,15 +96,15 @@ export default function Settings() {
           ))}
         </div>
 
-        <label style={lbl}><Activity size={11} /> Status</label>
-        <select className="input" value={status} onChange={(e) => setStatus(e.target.value)} data-testid="settings-status" style={{ margin: "6px 0 20px" }}>
+        <label style={lbl} htmlFor="settings-status-select"><Activity size={11} /> Status</label>
+        <select id="settings-status-select" className="input" value={status} onChange={(e) => setStatus(e.target.value)} data-testid="settings-status" style={{ margin: "6px 0 20px" }}>
           <option value="online">Online</option>
           <option value="away">Away</option>
           <option value="dnd">Do Not Disturb</option>
         </select>
 
-        <label style={lbl}><Phone size={11} /> Phone Number</label>
-        <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 123-4567" maxLength={20} data-testid="settings-phone" style={{ margin: "6px 0 16px" }} />
+        <label style={lbl} htmlFor="settings-phone-input"><Phone size={11} /> Phone Number</label>
+        <input id="settings-phone-input" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 123-4567" maxLength={20} data-testid="settings-phone" style={{ margin: "6px 0 16px" }} />
 
         {smsConfigured && (
           <div style={{
