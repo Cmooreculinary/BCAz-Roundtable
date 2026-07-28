@@ -1,38 +1,146 @@
+# Dependabot configuration
+#
+# Grouping is load-bearing here, not cosmetic. On 2026-07-26 seven separate
+# npm pull requests merged within four minutes of each other. Each was opened
+# against the same base and edited the same `devDependencies` object, so none
+# of them saw the others' edits. The merged result had duplicate JSON keys —
+# `eslint-plugin-react-hooks` and `globals` each appeared twice — so the last
+# value silently won, package.json fell out of sync with package-lock.json,
+# and `npm ci` began failing with ERESOLVE. CI and Render production deploys
+# went down together.
+#
+# The rules below make that specific failure hard to reproduce:
+#   * Packages that must move together are grouped into ONE pull request, so
+#     they cannot race each other into a corrupted manifest.
+#   * The open-pull-request limits are low, so a batch cannot pile up faster
+#     than it can be reviewed.
+#   * Majors known to be incompatible with this stack are ignored outright,
+#     with the blocker recorded, so they stop being re-proposed.
+#
+# NOTE: this file cannot stop a red pull request from being merged. Branch
+# protection requiring the `frontend` and `backend` checks is what does that,
+# and it has to be set in repository settings.
+
 version: 2
 updates:
+  # ── Frontend (Create React App + craco) ──────────────────────────
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    # Was 10. A batch that large is what let seven pull requests merge in four
+    # minutes without any of them rebasing on the others.
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
       - "javascript"
     groups:
+      # The ESLint toolchain moves as one unit or not at all. A partial upgrade
+      # is precisely what breaks it: eslint-config-react-app pins its own copies
+      # of these plugins, so bumping one out of step makes ESLint resolve two
+      # instances of the same plugin and refuse to run.
       eslint:
         patterns:
-          - "eslint*"
+          - "eslint"
+          - "eslint-*"
           - "@eslint/*"
+          - "@typescript-eslint/*"
+          - "globals"
         update-types:
+          - "major"
           - "minor"
           - "patch"
+
+      # React and the packages that peer-depend on it. Splitting these produces
+      # peer conflicts that only appear once they are combined.
       react:
         patterns:
-          - "react*"
-        update-types:
-          - "minor"
-          - "patch"
-      misc-minor-patch:
-        patterns:
-          - "*"
-        exclude-patterns:
-          - "eslint*"
-          - "@eslint/*"
-          - "react*"
+          - "react"
+          - "react-dom"
+          - "react-router*"
+          - "react-hook-form"
+          - "react-day-picker"
+          - "react-resizable-panels"
+          - "@types/react*"
         update-types:
           - "minor"
           - "patch"
 
+      # Radix ships ~25 packages that version in lockstep. Ungrouped, they alone
+      # can exhaust the pull-request limit.
+      radix-ui:
+        patterns:
+          - "@radix-ui/*"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+
+      # Build and styling tooling, meaningful only as a set.
+      build-tooling:
+        patterns:
+          - "tailwindcss"
+          - "tailwind-*"
+          - "postcss"
+          - "autoprefixer"
+          - "@craco/*"
+          - "react-scripts"
+          - "prettier"
+        update-types:
+          - "minor"
+          - "patch"
+
+      # Everything else, low-risk only. Majors deliberately fall outside every
+      # group so each one surfaces as its own reviewable pull request.
+      minor-and-patch:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "@typescript-eslint/*"
+          - "globals"
+          - "react"
+          - "react-dom"
+          - "react-router*"
+          - "react-hook-form"
+          - "react-day-picker"
+          - "react-resizable-panels"
+          - "@types/react*"
+          - "@radix-ui/*"
+          - "tailwindcss"
+          - "tailwind-*"
+          - "postcss"
+          - "autoprefixer"
+          - "@craco/*"
+          - "react-scripts"
+          - "prettier"
+        update-types:
+          - "minor"
+          - "patch"
+
+    ignore:
+      # ESLint 10 removed support for .eslintrc entirely and this project has no
+      # flat config. react-scripts 5.0.1 also bundles its own ESLint 8 for the
+      # build-time lint pass, so the upgrade cannot be taken while the app stays
+      # on Create React App. Revisit alongside a flat-config migration, or a
+      # move off CRA.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "globals"
+        update-types: ["version-update:semver-major"]
+
+      # Tailwind 4 replaces the `@tailwind base/components/utilities` directives
+      # that src/index.css still uses, and moves configuration into CSS. Bumping
+      # it alone silently breaks every style in the app. Revisit with a
+      # deliberate v4 migration and a visual diff.
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+
+  # ── Backend (FastAPI) ────────────────────────────────────────────
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:
@@ -42,18 +150,25 @@ updates:
       - "dependencies"
       - "python"
     groups:
-      python-minor-patch:
+      # Same reasoning as the frontend: routine bumps arrive as one reviewable
+      # pull request, majors arrive on their own.
+      minor-and-patch:
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
 
+  # ── CI workflows ─────────────────────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "github-actions"
+    groups:
+      actions:
+        patterns:
+          - "*"
