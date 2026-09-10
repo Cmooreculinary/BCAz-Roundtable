@@ -19,9 +19,12 @@ let reconnectTimer = null;
 let pingInterval = null;
 let reconnectEnabled = false;
 
-export function buildWebSocketUrl(backendUrl = BACKEND_URL, token = getAccessToken()) {
-  const base = backendUrl.replace(/^http/, "ws") + "/api/ws";
-  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+export function buildWebSocketUrl(backendUrl = BACKEND_URL) {
+  return backendUrl.replace(/^http/, "ws") + "/api/ws";
+}
+
+export function buildWebSocketProtocols(token = getAccessToken()) {
+  return token ? ["rt-v1", `rt-auth.${token}`] : ["rt-v1"];
 }
 
 function clearTimers() {
@@ -42,7 +45,7 @@ function connect(onOpen) {
   }
 
   try {
-    socket = new WebSocket(buildWebSocketUrl());
+    socket = new WebSocket(buildWebSocketUrl(), buildWebSocketProtocols());
   } catch (error) {
     logger.error("WebSocket connection could not be created:", error);
     scheduleReconnect();

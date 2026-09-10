@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ============== Roundtable_VO — macOS Design System ============== */
+/* ============== Roundtable_VO — Trench Design foundations ============== */
 /* Spring easing token — the "Apple overshoot" */
 :root {
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -10,9 +10,9 @@
   --glass-blur: blur(30px) saturate(180%);
   --glass-blur-light: blur(12px) saturate(140%);
 
-  --mac-blue: #007AFF;
+  --mac-blue: #EC5B13;
   --mac-green: #34C759;
-  --mac-orange: #FF9500;
+  --mac-orange: #EC5B13;
   --mac-red: #FF3B30;
   --mac-purple: #AF52DE;
   --mac-pink: #FF2D55;
@@ -42,35 +42,36 @@
   --wood-dormant: linear-gradient(135deg, #b9b1a6 0%, #8e877d 60%, #5f5953 100%);
 
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
 
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
   --shadow-xl: 0 20px 60px rgba(0,0,0,0.16);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", "IBM Plex Mono", Menlo, monospace;
+  --font-sans: "DM Sans", sans-serif;
+  --font-display: "Bebas Neue", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
 
   /* Roundtable gold — the accent of the venues, and now of every action that
      takes you into one. Semantic colors (green/red/amber) are untouched. */
-  --rt-gold: #E3B778;
-  --rt-gold-deep: #C9954E;
-  --rt-gold-lift: #F0CE95;
-  --rt-gold-ink: #1A1206;
+  --rt-gold: #EC5B13;
+  --rt-gold-deep: #EC5B13;
+  --rt-gold-lift: #EC5B13;
+  --rt-gold-ink: #0D0D0D;
   --rt-gold-line: rgba(201, 149, 78, 0.38);
   --rt-gold-wash: rgba(227, 183, 120, 0.14);
 }
 
 .dark {
-  --bg-primary: #1C1C1E;
-  --bg-secondary: #2C2C2E;
-  --bg-tertiary: #242426;
-  --bg-elevated: #2C2C2E;
-  --bg-sidebar: #1A1A1C;
-  --bg-titlebar: linear-gradient(180deg, #3a3a3c 0%, #2c2c2e 100%);
+  --bg-primary: #0D0D0D;
+  --bg-secondary: #141414;
+  --bg-tertiary: #1E1E1E;
+  --bg-elevated: #2A2A2A;
+  --bg-sidebar: #141414;
+  --bg-titlebar: #141414;
   --border-color: #3A3A3C;
   --border-light: #2A2A2C;
   --text-primary: #F5F5F7;
@@ -112,8 +113,9 @@ body {
 
 /* Focus ring — the venue key light, with spring */
 :focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(227,183,120,0.65), 0 0 10px rgba(227,183,120,0.25);
+  outline: 2px solid #EC5B13;
+  outline-offset: 2px;
+  box-shadow: none;
   border-radius: var(--radius-sm);
   transition: box-shadow 0.2s var(--spring);
 }
@@ -869,3 +871,13 @@ a[href^="tel:"]:hover, a[href^="sms:"]:hover {
 
 /* Message delete on hover */
 .msg-row:hover .msg-delete-btn { opacity: 1 !important; }
+
+/* Respect motion preferences without hiding state changes or controls. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

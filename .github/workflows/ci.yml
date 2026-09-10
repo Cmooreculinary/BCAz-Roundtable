@@ -14,17 +14,6 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    env:
-      ADMIN_EMAIL: admin@roundtable.app
-      ADMIN_PASSWORD: RoundtableTest2026
-      CORS_ORIGINS: https://localhost:3000
-      JWT_SECRET: ci-only-jwt-secret-at-least-32-bytes
-      MAX_UPLOAD_BYTES: "1024"
-      REACT_APP_BACKEND_URL: https://localhost:8001
-      SQLITE_PATH: /tmp/roundtable-ci.sqlite3
-      TEST_PASSWORD: RoundtableMember2026
-      TEST_USER_PASSWORD: RoundtableMember2026
-      UPLOAD_ROOT: /tmp/roundtable-ci-uploads
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -39,26 +28,12 @@ jobs:
       - name: Format check (black)
         run: black --check .
         continue-on-error: true
-      - name: Start local HTTPS API
-        run: |
-          openssl req -x509 -newkey rsa:2048 -nodes \
-            -keyout /tmp/roundtable-ci.key -out /tmp/roundtable-ci.crt -days 1 \
-            -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
-          uvicorn app:app --host 127.0.0.1 --port 8001 \
-            --ssl-keyfile /tmp/roundtable-ci.key \
-            --ssl-certfile /tmp/roundtable-ci.crt \
-            >/tmp/roundtable-ci-server.log 2>&1 &
-          for attempt in {1..20}; do
-            curl --cacert /tmp/roundtable-ci.crt --fail --silent https://localhost:8001/api/ && exit 0
-            sleep 1
-          done
-          cat /tmp/roundtable-ci-server.log
-          exit 1
-      - name: Run backend launch tests
-        env:
-          PYTHONPATH: .
-          REQUESTS_CA_BUNDLE: /tmp/roundtable-ci.crt
-        run: python -m pytest tests/test_iteration_18.py tests/test_iteration_19.py tests/test_roundtable_api.py tests/test_file_security.py tests/test_cross_origin_auth.py -q
+      - name: Reject Python syntax and undefined-name errors
+        run: ruff check . --select E9,F63,F7,F82
+      - name: Audit backend runtime dependencies
+        run: pip-audit -r requirements.txt
+      - name: Run isolated HTTPS launch gate
+        run: python check_launch.py
 
   frontend:
     runs-on: ubuntu-latest
@@ -75,9 +50,10 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --include=dev
+      - name: Audit frontend runtime dependencies
+        run: npm audit --omit=dev --audit-level=low
       - name: Lint (ESLint)
-        run: npm run lint --if-present
-        continue-on-error: true
+        run: npm run lint
       - name: Run frontend tests
         run: |
           set -o pipefail

@@ -71,14 +71,15 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = useCallback(async () => {
-    clearAccessToken();
     disconnectWebSocket();
     try {
       await api.post("/auth/logout");
     } catch (err) {
       logger.error("Logout API error (non-blocking):", err);
+    } finally {
+      clearAccessToken();
+      setUser(false);
     }
-    setUser(false);
   }, []);
 
   const updateMe = useCallback(async (patch) => {

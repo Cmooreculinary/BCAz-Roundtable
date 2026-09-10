@@ -11,16 +11,21 @@ import jwt
 import secrets
 import string
 import re
+import sqlite3
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Literal
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
+from html import escape
+from calendar import monthrange
+from collections import defaultdict, deque
+from time import monotonic
 
 from fastapi import FastAPI, APIRouter, Request, Response, HTTPException, Depends, UploadFile, File, Header, Query, WebSocket, WebSocketDisconnect
-from fastapi.responses import Response as FastResponse
+from fastapi.responses import Response as FastResponse, JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from sqlite_store import AsyncSQLiteClient
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 import asyncio
 import json as _json
 
@@ -31,6 +36,8 @@ logger = logging.getLogger("roundtable")
 DB_NAME = os.environ.get("DB_NAME", "roundtable_vo")
 SQLITE_PATH = os.environ.get("SQLITE_PATH", str(ROOT_DIR / "data" / f"{DB_NAME}.sqlite3"))
 JWT_SECRET = os.environ["JWT_SECRET"]
+if len(JWT_SECRET.encode("utf-8")) < 32:
+    raise RuntimeError("JWT_SECRET must contain at least 32 bytes")
 JWT_ALGORITHM = "HS256"
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@roundtable.app").strip().lower()
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
@@ -55,6 +62,9 @@ CORS_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
+AUTH_RATE_LIMIT = int(os.environ.get("AUTH_RATE_LIMIT", "30"))
+if AUTH_RATE_LIMIT < 1:
+    raise RuntimeError("AUTH_RATE_LIMIT must be positive")
 if "*" in CORS_ORIGINS:
     raise RuntimeError("CORS_ORIGINS must list explicit origins when credentials are enabled")
 
@@ -121,8 +131,8 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
 
 
 def clear_auth_cookies(response: Response):
-    response.delete_cookie("rt_access", path="/")
-    response.delete_cookie("rt_refresh", path="/")
+    response.delete_cookie("rt_access", path="/", secure=True, httponly=True, samesite="none")
+    response.delete_cookie("rt_refresh", path="/", secure=True, httponly=True, samesite="none")
 
 
 def initials_of(name: str) -> str:
@@ -159,11 +169,8 @@ def user_public(u: dict) -> dict:
 
 # ---------- Auth dependency ----------
 async def get_current_user(request: Request) -> dict:
-    token = request.cookies.get("rt_access")
-    if not token:
-        auth = request.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            token = auth[7:]
+    auth = request.headers.get("Authorization", "")
+    token = auth[7:] if auth.startswith("Bearer ") else request.cookies.get("rt_access")
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
@@ -195,7 +202,8 @@ class WSManager:
         self._lock = asyncio.Lock()
 
     async def connect(self, user_id: str, ws: WebSocket):
-        await ws.accept()
+        protocols = ws.scope.get("subprotocols", [])
+        await ws.accept(subprotocol="rt-v1" if "rt-v1" in protocols else None)
         async with self._lock:
             self._conns.setdefault(user_id, set()).add(ws)
         # Update presence
@@ -203,14 +211,16 @@ class WSManager:
         await self.broadcast_to_contacts(user_id, {"type": "presence", "user_id": user_id, "status": "online"})
 
     async def disconnect(self, user_id: str, ws: WebSocket):
+        went_offline = False
         async with self._lock:
             if user_id in self._conns:
                 self._conns[user_id].discard(ws)
                 if not self._conns[user_id]:
                     self._conns.pop(user_id, None)
-                    # Mark offline only if no other sockets for this user
-                    await db.users.update_one({"id": user_id}, {"$set": {"status": "offline", "last_seen_at": now_iso()}})
-                    await self.broadcast_to_contacts(user_id, {"type": "presence", "user_id": user_id, "status": "offline"})
+                    went_offline = True
+        if went_offline:
+            await db.users.update_one({"id": user_id}, {"$set": {"status": "offline", "last_seen_at": now_iso()}})
+            await self.broadcast_to_contacts(user_id, {"type": "presence", "user_id": user_id, "status": "offline"})
 
     async def send_to_user(self, user_id: str, payload: dict):
         sockets = list(self._conns.get(user_id, set()))
@@ -286,6 +296,21 @@ async def _handle_call_start(user_id: str, msg: dict):
     call_type = msg.get("call_type", "video")
     target_user = msg.get("target_user")
 
+    if call_type not in ("video", "audio", "walkie") or not (table_id or target_user):
+        raise HTTPException(status_code=400, detail="Invalid call destination or type")
+    if table_id:
+        await ensure_table_member(table_id, user_id)
+        if target_user:
+            await ensure_table_member(table_id, target_user)
+    elif not await db.users.find_one({"id": target_user}):
+        raise HTTPException(status_code=404, detail="Call recipient not found")
+    if call_id in active_calls or await db.call_logs.find_one({"call_id": call_id}):
+        raise HTTPException(status_code=409, detail="Call already exists")
+    if call_id in active_calls:
+        raise HTTPException(status_code=409, detail="Call already exists")
+    if user_id in user_call_map:
+        raise HTTPException(status_code=409, detail="Leave your current call first")
+
     active_calls[call_id] = {
         "call_id": call_id, "table_id": table_id, "type": call_type,
         "participants": {user_id}, "created_by": user_id,
@@ -293,12 +318,17 @@ async def _handle_call_start(user_id: str, msg: dict):
     }
     user_call_map[user_id] = call_id
 
-    await db.call_logs.insert_one({
-        "call_id": call_id, "table_id": table_id, "type": call_type,
-        "created_by": user_id, "target_user": target_user,
-        "participants": [user_id], "started_at": now_iso(),
-        "ended_at": None, "duration_seconds": 0, "status": "active",
-    })
+    try:
+        await db.call_logs.insert_one({
+            "call_id": call_id, "table_id": table_id, "type": call_type,
+            "created_by": user_id, "target_user": target_user,
+            "participants": [user_id], "started_at": now_iso(),
+            "ended_at": None, "duration_seconds": 0, "status": "active",
+        })
+    except sqlite3.IntegrityError:
+        active_calls.pop(call_id, None)
+        user_call_map.pop(user_id, None)
+        raise HTTPException(status_code=409, detail="Call already exists") from None
 
     caller = await db.users.find_one({"id": user_id}, {"_id": 0})
     caller_info = user_public(caller) if caller else {"id": user_id, "name": "Someone"}
@@ -329,6 +359,14 @@ async def _handle_call_join(user_id: str, msg: dict):
         return
 
     call = active_calls[call_id]
+    if call.get("table_id"):
+        await ensure_table_member(call["table_id"], user_id)
+    elif user_id not in (call["created_by"], call.get("target_user")):
+        raise HTTPException(status_code=403, detail="Not invited to this call")
+    if user_id in call["participants"]:
+        return
+    if user_id in user_call_map:
+        raise HTTPException(status_code=409, detail="Leave your current call first")
     existing_participants = list(call["participants"])
     call["participants"].add(user_id)
     user_call_map[user_id] = call_id
@@ -363,6 +401,8 @@ async def _handle_call_leave(user_id: str, msg: dict):
         return
 
     call = active_calls[call_id]
+    if user_id not in call["participants"]:
+        raise HTTPException(status_code=403, detail="Not a call participant")
     call["participants"].discard(user_id)
     user_call_map.pop(user_id, None)
 
@@ -398,6 +438,7 @@ async def _finalize_call_log(call_id: str, call: dict):
 
 async def _handle_sdp_relay(user_id: str, msg: dict):
     """Relay SDP offer or answer to the target peer."""
+    _ensure_call_peers(user_id, msg)
     target = msg.get("target_user")
     if target:
         await ws_manager.send_to_user(target, {
@@ -408,6 +449,7 @@ async def _handle_sdp_relay(user_id: str, msg: dict):
 
 async def _handle_ice_relay(user_id: str, msg: dict):
     """Relay ICE candidate to the target peer."""
+    _ensure_call_peers(user_id, msg)
     target = msg.get("target_user")
     if target:
         await ws_manager.send_to_user(target, {
@@ -416,10 +458,18 @@ async def _handle_ice_relay(user_id: str, msg: dict):
         })
 
 
+def _ensure_call_peers(user_id: str, msg: dict):
+    call = active_calls.get(msg.get("call_id"))
+    if not call or user_id not in call["participants"] or msg.get("target_user") not in call["participants"]:
+        raise HTTPException(status_code=403, detail="Not connected to this call peer")
+
+
 async def _handle_walkie_talk_state(user_id: str, msg: dict):
     """Broadcast talking state to all call participants."""
     call_id = msg.get("call_id") or user_call_map.get(user_id)
     if call_id and call_id in active_calls:
+        if user_id not in active_calls[call_id]["participants"]:
+            raise HTTPException(status_code=403, detail="Not a call participant")
         for pid in active_calls[call_id]["participants"]:
             if pid != user_id:
                 await ws_manager.send_to_user(pid, {
@@ -464,6 +514,21 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6, max_length=200)
     name: str = Field(min_length=2, max_length=60)
+
+    @field_validator("password")
+    @classmethod
+    def password_bytes(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be at most 72 UTF-8 bytes")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def nonblank_name(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 2:
+            raise ValueError("Name must contain at least two characters")
+        return value
 
 
 class LoginIn(BaseModel):
@@ -594,8 +659,8 @@ class ReactionIn(BaseModel):
 
 class InviteIn(BaseModel):
     table_id: str
-    max_uses: int = 50
-    expires_in_days: int = 30
+    max_uses: int = Field(default=50, ge=1, le=1000)
+    expires_in_days: int = Field(default=30, ge=1, le=365)
     recipient_email: Optional[EmailStr] = None
     recipient_name: Optional[str] = Field(default=None, max_length=60)
 
@@ -669,7 +734,7 @@ async def startup():
     # Storage
     init_storage()
     # Start event reminder background task
-    asyncio.create_task(_event_reminder_loop())
+    app.state.reminder_task = asyncio.create_task(_event_reminder_loop())
 
 
 async def _event_reminder_loop():
@@ -725,6 +790,13 @@ async def _send_event_reminders():
 
 @app.on_event("shutdown")
 async def shutdown():
+    task = getattr(app.state, "reminder_task", None)
+    if task:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
     sqlite_client.close()
 
 
@@ -747,11 +819,14 @@ async def register(payload: RegisterIn, response: Response):
         "onboarded": False,
         "created_at": now_iso(),
     }
-    await db.users.insert_one(user)
+    try:
+        await db.users.insert_one(user)
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409, detail="Email already registered") from None
     access = create_access_token(user["id"], user["email"])
     refresh = create_refresh_token(user["id"])
     set_auth_cookies(response, access, refresh)
-    return {"user": user_public(user)}
+    return {"user": user_public(user), "access_token": access, "token_type": "bearer", "expires_in": 86400}
 
 
 @api.post("/auth/login")
@@ -763,11 +838,11 @@ async def login(payload: LoginIn, response: Response):
     access = create_access_token(user["id"], user["email"])
     refresh = create_refresh_token(user["id"])
     set_auth_cookies(response, access, refresh)
-    return {"user": user_public(user)}
+    return {"user": user_public(user), "access_token": access, "token_type": "bearer", "expires_in": 86400}
 
 
 @api.post("/auth/logout")
-async def logout(response: Response, user: dict = Depends(get_current_user)):
+async def logout(response: Response):
     clear_auth_cookies(response)
     return {"ok": True}
 
@@ -803,7 +878,7 @@ async def update_me(payload: UserUpdateIn, user: dict = Depends(get_current_user
 
 @api.get("/members")
 async def list_members(user: dict = Depends(get_current_user)):
-    # List all users the current user shares a table with + admin
+    # Directory visibility is limited to users who share a table.
     my_tables = await db.table_members.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
     table_ids = [m["table_id"] for m in my_tables]
     members = []
@@ -818,10 +893,6 @@ async def list_members(user: dict = Depends(get_current_user)):
         if member_user_ids:
             batch = await db.users.find({"id": {"$in": list(member_user_ids)}}, {"_id": 0}).to_list(500)
             members.extend(user_public(u) for u in batch)
-    # Also include all other users to support discovery for contacts (limit 200)
-    cursor = db.users.find({"id": {"$nin": list(seen)}}, {"_id": 0}).limit(200)
-    async for u in cursor:
-        members.append(user_public(u))
     return members
 
 
@@ -859,8 +930,8 @@ async def get_table(table_id: str, user: dict = Depends(get_current_user)):
     users = []
     async for u in db.users.find({"id": {"$in": user_ids}}, {"_id": 0}):
         users.append(user_public(u))
-    items = await db.shared_items.find({"table_id": table_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
-    events = await db.events.find({"table_id": table_id}, {"_id": 0}).sort("date", 1).to_list(200)
+    items = await db.shared_items.find({"table_id": table_id, "deleted_at": {"$exists": False}}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    events = await db.events.find({"table_id": table_id, "deleted_at": {"$exists": False}}, {"_id": 0}).sort("date", 1).to_list(200)
     seats = await db.table_seats.find({"table_id": table_id}, {"_id": 0}).to_list(50)
     t["members"] = users
     t["member_count"] = len(users)
@@ -1027,8 +1098,7 @@ async def claim_seat(table_id: str, payload: SeatClaimIn, user: dict = Depends(g
         if seat_index in taken:
             raise HTTPException(status_code=409, detail="Seat already taken")
 
-    # Move user: drop any existing seat, then upsert the new one
-    await db.table_seats.delete_many({"table_id": table_id, "user_id": user["id"]})
+    # Atomically move the user's seat; a collision leaves the old seat intact.
     seat_doc = {
         "id": new_id(),
         "table_id": table_id,
@@ -1036,7 +1106,13 @@ async def claim_seat(table_id: str, payload: SeatClaimIn, user: dict = Depends(g
         "user_id": user["id"],
         "claimed_at": now_iso(),
     }
-    await db.table_seats.insert_one(seat_doc)
+    try:
+        await db.table_seats.update_one(
+            {"table_id": table_id, "user_id": user["id"]},
+            {"$set": seat_doc}, upsert=True,
+        )
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409, detail="Seat already taken") from None
     seat_doc.pop("_id", None)
 
     seats = await db.table_seats.find({"table_id": table_id}, {"_id": 0}).to_list(50)
@@ -1088,6 +1164,11 @@ async def list_items(table_id: str, user: dict = Depends(get_current_user)):
 @api.post("/tables/{table_id}/items")
 async def add_item(table_id: str, payload: SharedItemIn, user: dict = Depends(get_current_user)):
     await ensure_table_member(table_id, user["id"])
+    if payload.url:
+        storage_path = payload.url.rsplit("/files/", 1)[-1]
+        record = await db.files.find_one({"storage_path": storage_path, "is_deleted": False})
+        if record:
+            await ensure_file_access(record, user["id"])
     item = {
         "id": new_id(),
         "table_id": table_id,
@@ -1151,7 +1232,7 @@ async def list_prayers(table_id: str, user: dict = Depends(get_current_user)):
     """Prayer Wall — returns prayer + intention items for the table, with reactions."""
     await ensure_table_member(table_id, user["id"])
     items = await db.shared_items.find(
-        {"table_id": table_id, "type": {"$in": ["prayer", "intention"]}},
+        {"table_id": table_id, "type": {"$in": ["prayer", "intention"]}, "deleted_at": {"$exists": False}},
         {"_id": 0},
     ).sort("created_at", -1).to_list(500)
     for it in items:
@@ -1199,17 +1280,9 @@ async def upload_file(file: UploadFile = File(...), user: dict = Depends(get_cur
     return record
 
 
-@api.get("/files/{storage_path:path}")
-async def download_file(
-    storage_path: str,
-    download: bool = False,
-    user: dict = Depends(get_current_user),
-):
-    record = await db.files.find_one({"storage_path": storage_path, "is_deleted": False}, {"_id": 0})
-    if not record:
-        raise HTTPException(status_code=404, detail="File not found")
-
-    if record.get("uploaded_by") != user["id"]:
+async def ensure_file_access(record: dict, user_id: str):
+    storage_path = record["storage_path"]
+    if record.get("uploaded_by") != user_id:
         escaped_path = re.escape(storage_path)
         items = await db.shared_items.find(
             {
@@ -1221,7 +1294,7 @@ async def download_file(
         has_access = False
         for item in items:
             membership = await db.table_members.find_one(
-                {"table_id": item["table_id"], "user_id": user["id"]},
+                {"table_id": item["table_id"], "user_id": user_id},
                 {"_id": 0},
             )
             if membership:
@@ -1229,6 +1302,20 @@ async def download_file(
                 break
         if not has_access:
             raise HTTPException(status_code=403, detail="You do not have access to this file")
+
+
+
+@api.get("/files/{storage_path:path}")
+async def download_file(
+    storage_path: str,
+    download: bool = False,
+    user: dict = Depends(get_current_user),
+):
+    record = await db.files.find_one({"storage_path": storage_path, "is_deleted": False}, {"_id": 0})
+    if not record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    await ensure_file_access(record, user["id"])
 
     data, content_type = get_object(storage_path)
     disposition = "attachment" if download else "inline"
@@ -1452,6 +1539,8 @@ async def update_event(event_id: str, payload: EventIn, user: dict = Depends(get
         raise HTTPException(status_code=404, detail="Event not found")
     if ev["created_by"] != user["id"]:
         raise HTTPException(status_code=403, detail="Forbidden")
+    if payload.table_id:
+        await ensure_table_member(payload.table_id, user["id"])
     await db.events.update_one({"id": event_id}, {"$set": payload.model_dump()})
     new_ev = await db.events.find_one({"id": event_id}, {"_id": 0})
     return new_ev
@@ -1530,7 +1619,7 @@ async def walkie_ping(payload: WalkiePingIn, user: dict = Depends(get_current_us
 @api.get("/invites/preview/{code}")
 async def preview_invite(code: str):
     """Public endpoint - lets anyone view a table preview via invite code."""
-    inv = await db.invites.find_one({"code": code.upper().strip()}, {"_id": 0})
+    inv = await db.invites.find_one({"code": code.upper().strip(), "deleted_at": {"$exists": False}}, {"_id": 0})
     if not inv:
         raise HTTPException(status_code=404, detail="Invite not found")
     if inv.get("expires_at") and inv["expires_at"] < now_iso():
@@ -1601,7 +1690,7 @@ async def create_invite(payload: InviteIn, user: dict = Depends(get_current_user
             import httpx
             join_url = f"{CORS_ORIGINS[0] if CORS_ORIGINS else 'https://roundtable-vo.app'}/join/{code}"
             async with httpx.AsyncClient() as client:
-                await client.post(
+                email_response = await client.post(
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
                     json={
@@ -1611,13 +1700,14 @@ async def create_invite(payload: InviteIn, user: dict = Depends(get_current_user
                         "html": (
                             f"<div style='font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:480px;margin:0 auto;padding:32px;'>"
                             f"<h2 style='margin:0 0 12px;'>You're invited!</h2>"
-                            f"<p style='color:#555;line-height:1.6;'>{user['name']} wants you to join <strong>{table_name}</strong> on Roundtable_VO — where your people gather.</p>"
+                            f"<p style='color:#555;line-height:1.6;'>{escape(user['name'])} wants you to join <strong>{escape(table_name)}</strong> on Roundtable_VO — where your people gather.</p>"
                             f"<a href='{join_url}' style='display:inline-block;padding:14px 28px;background:#007AFF;color:white;text-decoration:none;border-radius:10px;font-weight:600;margin:20px 0;'>Join the Table</a>"
                             f"<p style='color:#999;font-size:13px;'>Or use invite code: <strong>{code}</strong></p>"
                             f"</div>"
                         ),
                     },
                 )
+                email_response.raise_for_status()
             inv["email_sent_to"] = payload.recipient_email
             logger.info(f"Invite email sent to {payload.recipient_email} for table {table_name}")
         except Exception as e:
@@ -1629,7 +1719,7 @@ async def create_invite(payload: InviteIn, user: dict = Depends(get_current_user
 
 @api.post("/invites/join")
 async def join_invite(payload: InviteJoinIn, user: dict = Depends(get_current_user)):
-    inv = await db.invites.find_one({"code": payload.code.upper().strip()}, {"_id": 0})
+    inv = await db.invites.find_one({"code": payload.code.upper().strip(), "deleted_at": {"$exists": False}}, {"_id": 0})
     if not inv:
         raise HTTPException(status_code=404, detail="Invite not found")
     if inv["uses"] >= inv["max_uses"]:
@@ -1639,10 +1729,21 @@ async def join_invite(payload: InviteJoinIn, user: dict = Depends(get_current_us
     existing = await db.table_members.find_one({"table_id": inv["table_id"], "user_id": user["id"]})
     if existing:
         return {"ok": True, "table_id": inv["table_id"], "already_member": True}
-    await db.table_members.insert_one({
-        "table_id": inv["table_id"], "user_id": user["id"], "role": "member", "joined_at": now_iso()
-    })
-    await db.invites.update_one({"id": inv["id"]}, {"$inc": {"uses": 1}})
+    if not await db.tables.find_one({"id": inv["table_id"]}):
+        raise HTTPException(status_code=404, detail="Table not found")
+    reserved = await db.invites.update_one(
+        {"id": inv["id"], "uses": {"$lt": inv["max_uses"]}, "deleted_at": {"$exists": False}},
+        {"$inc": {"uses": 1}},
+    )
+    if not reserved.modified_count:
+        raise HTTPException(status_code=410, detail="Invite is no longer available")
+    try:
+        await db.table_members.insert_one({
+            "table_id": inv["table_id"], "user_id": user["id"], "role": "member", "joined_at": now_iso()
+        })
+    except sqlite3.IntegrityError:
+        await db.invites.update_one({"id": inv["id"]}, {"$inc": {"uses": -1}})
+        return {"ok": True, "table_id": inv["table_id"], "already_member": True}
     await db.invites.update_one({"id": inv["id"]}, {"$set": {"accepted_at": now_iso(), "accepted_by": user["id"]}})
     # Referral tracking
     await db.referrals.insert_one({
@@ -1829,15 +1930,22 @@ def _expand_recurring(events: list, days_forward: int = 90) -> list:
             base = datetime.fromisoformat(e["date"]).date()
         except Exception:
             continue
-        step_days = 7 if rec == "weekly" else 30
-        cur = base
-        instance = 0
+        if rec == "weekly":
+            instance = max(1, (today - base).days // 7)
+        else:
+            instance = max(1, (today.year - base.year) * 12 + today.month - base.month)
         while True:
-            cur = cur + timedelta(days=step_days)
-            instance += 1
-            if cur > end_date or instance > 40:
+            if rec == "weekly":
+                cur = base + timedelta(weeks=instance)
+            else:
+                month_index = base.year * 12 + base.month - 1 + instance
+                year, month_zero = divmod(month_index, 12)
+                month = month_zero + 1
+                cur = base.replace(year=year, month=month, day=min(base.day, monthrange(year, month)[1]))
+            if cur > end_date:
                 break
             if cur < today:
+                instance += 1
                 continue
             clone = dict(e)
             clone["date"] = cur.isoformat()
@@ -1845,6 +1953,7 @@ def _expand_recurring(events: list, days_forward: int = 90) -> list:
             clone["_virtual"] = True
             clone["_parent_id"] = e["id"]
             out.append(clone)
+            instance += 1
     return out
 
 
@@ -1852,6 +1961,20 @@ def _expand_recurring(events: list, days_forward: int = 90) -> list:
 class PushSubscriptionIn(BaseModel):
     endpoint: str
     keys: dict  # {p256dh, auth}
+
+    @field_validator("endpoint")
+    @classmethod
+    def trusted_push_endpoint(cls, value: str) -> str:
+        parsed = urlparse(value)
+        host = parsed.hostname or ""
+        trusted = ("fcm.googleapis.com", "updates.push.services.mozilla.com", "push.apple.com", "notify.windows.com")
+        if (
+            parsed.scheme != "https" or parsed.username or parsed.password
+            or parsed.port not in (None, 443) or parsed.fragment
+            or not any(host == suffix or host.endswith("." + suffix) for suffix in trusted)
+        ):
+            raise ValueError("A supported browser push endpoint over HTTPS is required")
+        return value
 
 
 @api.get("/push/vapid-key")
@@ -1899,20 +2022,20 @@ async def send_push_to_user(user_id: str, title: str, body: str, data: dict = No
         "title": title,
         "body": body,
         "data": data or {},
-        "icon": "/logo192.png",
-        "badge": "/logo192.png",
     })
     dead_endpoints = []
     for sub in subs:
         try:
-            webpush(
+            PushSubscriptionIn(endpoint=sub["endpoint"], keys=sub["keys"])
+            await asyncio.to_thread(webpush,
                 subscription_info={"endpoint": sub["endpoint"], "keys": sub["keys"]},
                 data=payload,
                 vapid_private_key=VAPID_PRIVATE_KEY,
                 vapid_claims={"sub": VAPID_CLAIMS_EMAIL, "aud": sub["endpoint"].split("/", 3)[0] + "//" + sub["endpoint"].split("/")[2]},
+                timeout=10,
             )
         except WebPushException as e:
-            if e.response and e.response.status_code in (404, 410):
+            if e.response is not None and e.response.status_code in (404, 410):
                 dead_endpoints.append(sub["endpoint"])
             else:
                 logger.warning(f"Push failed for {user_id}: {e}")
@@ -2137,7 +2260,17 @@ async def restore_item(collection: str = "", item_id: str = "", user: dict = Dep
     allowed = ["invites", "emails", "messages", "call_logs", "shared_items", "events", "contacts", "notifications"]
     if collection not in allowed:
         raise HTTPException(status_code=400, detail=f"Invalid collection: {collection}")
-    ok = await restore_from_trash(collection, item_id)
+    identity = "call_id" if collection == "call_logs" else "id"
+    item = await db[collection].find_one({identity: item_id, "deleted_by": user["id"], "deleted_at": {"$exists": True}})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found in your trash")
+    if item.get("table_id"):
+        await ensure_table_member(item["table_id"], user["id"])
+    result = await db[collection].update_one(
+        {identity: item_id, "deleted_by": user["id"]},
+        {"$unset": {"deleted_at": "", "deleted_by": ""}},
+    )
+    ok = result.modified_count > 0
     if not ok:
         raise HTTPException(status_code=404, detail="Item not found in trash")
     return {"ok": True}
@@ -2157,6 +2290,8 @@ async def list_trash(collection: Optional[str] = None, user: dict = Depends(get_
         "contacts": {"owner_id": user["id"], "deleted_at": {"$exists": True}},
         "notifications": {"user_id": user["id"], "deleted_at": {"$exists": True}},
     }
+    if collection and collection not in collections_to_check:
+        raise HTTPException(status_code=400, detail="Invalid collection")
     if collection and collection in collections_to_check:
         collections_to_check = {collection: collections_to_check[collection]}
     for coll, query in collections_to_check.items():
@@ -2180,6 +2315,8 @@ async def purge_trash(collection: Optional[str] = None, user: dict = Depends(get
         "contacts": {"owner_id": user["id"]},
         "notifications": {"user_id": user["id"]},
     }
+    if collection and collection not in collections_to_purge:
+        raise HTTPException(status_code=400, detail="Invalid collection")
     if collection and collection in collections_to_purge:
         collections_to_purge = {collection: collections_to_purge[collection]}
     for coll, base_query in collections_to_purge.items():
@@ -2213,7 +2350,7 @@ async def delete_invite(invite_id: str, user: dict = Depends(get_current_user)):
 
 @api.delete("/emails/{email_id}")
 async def delete_email(email_id: str, user: dict = Depends(get_current_user)):
-    email = await db.emails.find_one({"id": email_id}, {"_id": 0})
+    email = await db.emails.find_one({"id": email_id, "$or": [{"to_user": user["id"]}, {"from_user": user["id"]}]}, {"_id": 0})
     if not email:
         raise HTTPException(status_code=404, detail="Email not found")
     await soft_delete("emails", email_id, user["id"])
@@ -2222,7 +2359,7 @@ async def delete_email(email_id: str, user: dict = Depends(get_current_user)):
 
 @api.delete("/messages/{message_id}")
 async def delete_message(message_id: str, user: dict = Depends(get_current_user)):
-    msg = await db.messages.find_one({"id": message_id}, {"_id": 0})
+    msg = await db.messages.find_one({"id": message_id, "$or": [{"to_user": user["id"]}, {"from_user": user["id"]}]}, {"_id": 0})
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found")
     await soft_delete("messages", message_id, user["id"])
@@ -2253,7 +2390,12 @@ async def clear_call_history(user: dict = Depends(get_current_user)):
 
 @api.delete("/calls/history/{call_id}")
 async def delete_call_log(call_id: str, user: dict = Depends(get_current_user)):
-    await soft_delete("call_logs", call_id, user["id"])
+    result = await db.call_logs.update_one(
+        {"call_id": call_id, "participants": user["id"]},
+        {"$set": {"deleted_at": now_iso(), "deleted_by": user["id"]}},
+    )
+    if not result.matched_count:
+        raise HTTPException(status_code=404, detail="Call not found")
     return {"ok": True}
 
 
@@ -2278,6 +2420,7 @@ async def clear_all_notifications(user: dict = Depends(get_current_user)):
 # ---------- Health ----------
 @api.get("/")
 async def root():
+    await db.command("ping")
     return {"service": "Roundtable_VO API", "status": "ok"}
 
 
@@ -2313,7 +2456,7 @@ async def suggest_events(table_id: str, user: dict = Depends(get_current_user)):
 
 async def _build_suggest_prompt(table: dict, table_id: str) -> dict:
     """Build system + user prompt for event suggestions."""
-    existing = await db.events.find({"table_id": table_id}, {"_id": 0}).sort("date", -1).limit(10).to_list(10)
+    existing = await db.events.find({"table_id": table_id, "deleted_at": {"$exists": False}}, {"_id": 0}).sort("date", -1).limit(10).to_list(10)
     existing_summary = "\n".join([f"- {e['title']} on {e['date']}" for e in existing]) or "(none yet)"
     purpose = table.get("purpose", "other")
     guidance = PURPOSE_GUIDANCE.get(purpose, PURPOSE_GUIDANCE["other"])
@@ -2378,7 +2521,12 @@ def _parse_suggestions(raw: str, color: str) -> list:
 # ---------- WebSocket ----------
 async def _authenticate_ws(websocket: WebSocket) -> str:
     """Authenticate WebSocket connection. Returns user_id or raises."""
-    token = websocket.cookies.get("rt_access") or websocket.query_params.get("token")
+    origin = websocket.headers.get("origin")
+    if origin and origin not in CORS_ORIGINS:
+        await websocket.close(code=4403)
+        return ""
+    protocol_token = next((value.removeprefix("rt-auth.") for value in websocket.scope.get("subprotocols", []) if value.startswith("rt-auth.")), None)
+    token = protocol_token or websocket.cookies.get("rt_access")
     if not token:
         await websocket.close(code=4401)
         return ""
@@ -2387,7 +2535,11 @@ async def _authenticate_ws(websocket: WebSocket) -> str:
         if payload.get("type") != "access":
             await websocket.close(code=4401)
             return ""
-        return payload["sub"]
+        user_id = payload.get("sub")
+        if not user_id or not await db.users.find_one({"id": user_id}):
+            await websocket.close(code=4401)
+            return ""
+        return user_id
     except jwt.PyJWTError:
         await websocket.close(code=4401)
         return ""
@@ -2407,6 +2559,7 @@ async def _route_ws_message(user_id: str, msg: dict, websocket: WebSocket):
     elif msg_type in ("present_start", "present_sync", "present_stop"):
         table_id = msg.get("table_id")
         if table_id:
+            await ensure_table_member(table_id, user_id)
             await ws_manager.broadcast_to_table(table_id, {**msg, "from_user": user_id}, exclude_user=user_id)
 
 
@@ -2444,7 +2597,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 msg = _json.loads(data)
             except Exception:
                 continue
-            await _route_ws_message(user_id, msg, websocket)
+            if not isinstance(msg, dict):
+                continue
+            try:
+                await _route_ws_message(user_id, msg, websocket)
+            except HTTPException as error:
+                await websocket.send_json({"type": "call_error" if str(msg.get("type", "")).startswith(("call_", "webrtc_", "walkie_")) else "error", "error": error.detail})
     except WebSocketDisconnect:
         pass
     except Exception as e:
@@ -2455,19 +2613,42 @@ async def websocket_endpoint(websocket: WebSocket):
 
 app.include_router(api)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=CORS_ORIGINS,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+
+
+_auth_attempts = defaultdict(deque)
 
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
+    origin = request.headers.get("origin")
+    if request.method not in ("GET", "HEAD", "OPTIONS") and origin and origin not in CORS_ORIGINS:
+        return JSONResponse(status_code=403, content={"detail": "Origin is not allowed"})
+    if request.method == "POST" and request.url.path in ("/api/auth/login", "/api/auth/register"):
+        current = monotonic()
+        for key in list(_auth_attempts):
+            if not _auth_attempts[key] or _auth_attempts[key][-1] <= current - 60:
+                del _auth_attempts[key]
+        key = request.client.host if request.client else "unknown"
+        attempts = _auth_attempts[key]
+        while attempts and attempts[0] <= current - 60:
+            attempts.popleft()
+        if len(attempts) >= AUTH_RATE_LIMIT:
+            return JSONResponse(status_code=429, content={"detail": "Too many sign-in attempts. Try again in a minute."}, headers={"Retry-After": "60"})
+        attempts.append(current)
     response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=CORS_ORIGINS,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
