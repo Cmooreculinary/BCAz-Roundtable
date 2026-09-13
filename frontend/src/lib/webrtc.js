@@ -301,6 +301,7 @@ onRTEvent((evt) => {
       handleIce(evt);
       break;
     case "call_error":
+      leaveCall();
       notifyStateChange("error", { error: evt.error });
       break;
     default:

@@ -7,8 +7,9 @@ import re
 import sqlite3
 import threading
 import uuid
+import hashlib
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from pathlib import Path
 from typing import Any
 
@@ -336,6 +337,7 @@ class AsyncSQLiteDatabase:
     async def command(self, command_name: str) -> dict[str, int]:
         if command_name != "ping":
             raise NotImplementedError(f"Unsupported SQLite command: {command_name}")
+        await self.client._run(lambda: self.client._connection.execute("SELECT 1").fetchone())
         return {"ok": 1}
 
 
@@ -358,42 +360,47 @@ class AsyncSQLiteCollection:
 
         return await self.client._run(load)
 
-    async def _save_document(self, document: dict[str, Any]) -> str:
+    def _save_document_sync(self, document: dict[str, Any], *, insert: bool = False) -> str:
         stored = _clone_document(document)
         document_key = str(stored.get("_id") or stored.get("id") or uuid.uuid4())
         stored.setdefault("_id", document_key)
         payload = json.dumps(stored, sort_keys=True, separators=(",", ":"))
 
-        def save():
-            self.client._connection.execute(
-                """
-                INSERT OR REPLACE INTO documents
+        statement = """
+                INSERT INTO documents
                 (database_name, collection_name, document_key, document_json, updated_at)
                 VALUES (?, ?, ?, ?, ?)
-                """,
+                """
+        if not insert:
+            statement += " ON CONFLICT(database_name, collection_name, document_key) DO UPDATE SET document_json=excluded.document_json, updated_at=excluded.updated_at"
+        self.client._connection.execute(
+                statement,
                 (
                     self.database_name,
                     self.collection_name,
                     document_key,
                     payload,
-                    datetime.utcnow().isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                 ),
             )
-            self.client._connection.commit()
-
-        await self.client._run(save)
         document.clear()
         document.update(stored)
         return document_key
 
+    async def _save_document(self, document: dict[str, Any], *, insert: bool = False) -> str:
+        def save():
+            with self.client._connection:
+                return self._save_document_sync(document, insert=insert)
+        return await self.client._run(save)
+
     async def insert_one(self, document: dict[str, Any]) -> InsertOneResult:
-        document_key = await self._save_document(document)
+        document_key = await self._save_document(document, insert=True)
         return InsertOneResult(inserted_id=document_key)
 
     async def insert_many(self, documents: list[dict[str, Any]]) -> InsertManyResult:
         inserted_ids = []
         for document in documents:
-            inserted_ids.append(await self._save_document(document))
+            inserted_ids.append(await self._save_document(document, insert=True))
         return InsertManyResult(inserted_ids=inserted_ids)
 
     def find(self, query: dict[str, Any] | None = None, projection: dict[str, Any] | None = None) -> "AsyncSQLiteCursor":
@@ -419,23 +426,30 @@ class AsyncSQLiteCollection:
         return await self._update(query, update, upsert=upsert, multi=True)
 
     async def _update(self, query: dict[str, Any], update: dict[str, Any], upsert: bool, multi: bool) -> UpdateResult:
-        documents = await self._load_documents()
-        matched = [document for document in documents if _matches(document, query)]
-        if not matched and upsert:
-            document = _document_from_query(query)
-            document.setdefault("_id", str(uuid.uuid4()))
-            updated = _apply_update(document, update)
-            document_key = await self._save_document(updated)
-            return UpdateResult(matched_count=0, modified_count=0, upserted_id=document_key)
-
-        targeted = matched if multi else matched[:1]
-        modified_count = 0
-        for document in targeted:
-            updated = _apply_update(document, update)
-            if updated != document:
-                modified_count += 1
-            await self._save_document(updated)
-        return UpdateResult(matched_count=len(targeted), modified_count=modified_count)
+        def apply():
+            # Hold the write transaction across both reads and writes: concurrent
+            # increments, upserts and conditional claims must not lose updates.
+            with self.client._connection:
+                self.client._connection.execute("BEGIN IMMEDIATE")
+                rows = self.client._connection.execute(
+                    "SELECT document_json FROM documents WHERE database_name=? AND collection_name=?",
+                    (self.database_name, self.collection_name),
+                ).fetchall()
+                matched = [doc for row in rows if _matches(doc := json.loads(row["document_json"]), query)]
+                if not matched and upsert:
+                    document = _document_from_query(query)
+                    document.setdefault("_id", str(uuid.uuid4()))
+                    key = self._save_document_sync(_apply_update(document, update), insert=True)
+                    return UpdateResult(upserted_id=key)
+                targeted = matched if multi else matched[:1]
+                modified_count = 0
+                for document in targeted:
+                    updated = _apply_update(document, update)
+                    if updated != document:
+                        modified_count += 1
+                        self._save_document_sync(updated)
+                return UpdateResult(matched_count=len(targeted), modified_count=modified_count)
+        return await self.client._run(apply)
 
     async def delete_one(self, query: dict[str, Any]) -> DeleteResult:
         return await self._delete(query, multi=False)
@@ -472,9 +486,30 @@ class AsyncSQLiteCollection:
         return sum(1 for document in documents if _matches(document, query or {}))
 
     async def create_index(self, *args, **kwargs) -> str:
-        if args:
-            return str(args[0])
-        return str(kwargs.get("name", "sqlite_json_index"))
+        fields = args[0] if args else kwargs.get("keys")
+        if isinstance(fields, str):
+            fields = [(fields, 1)]
+        if not fields:
+            raise ValueError("Index fields are required")
+        unique = bool(kwargs.get("unique"))
+        identity = json.dumps([self.database_name, self.collection_name, fields, unique])
+        name = "idx_json_" + hashlib.sha256(identity.encode()).hexdigest()[:24]
+        def literal(value):
+            return "'" + str(value).replace("'", "''") + "'"
+        expressions = []
+        for field, direction in fields:
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]*", field):
+                raise ValueError("Invalid index field")
+            expressions.append(f"json_extract(document_json, {literal('$.' + field)})" + (" DESC" if direction == -1 else " ASC"))
+        statement = (
+            f"CREATE {'UNIQUE ' if unique else ''}INDEX IF NOT EXISTS {name} ON documents ({', '.join(expressions)}) "
+            f"WHERE database_name={literal(self.database_name)} AND collection_name={literal(self.collection_name)}"
+        )
+        def create():
+            with self.client._connection:
+                self.client._connection.execute(statement)
+        await self.client._run(create)
+        return name
 
     def aggregate(self, pipeline: list[dict[str, Any]]) -> "AsyncSQLiteAggregateCursor":
         return AsyncSQLiteAggregateCursor(self, pipeline)

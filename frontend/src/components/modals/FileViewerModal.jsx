@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { X, Download, ChevronLeft, ChevronRight, Monitor, MonitorOff } from "lucide-react";
+import { X, Download, Monitor, MonitorOff } from "lucide-react";
 import { useRTEvent, sendWS } from "../../lib/realtime";
-import { buildFileUrl } from "../../lib/api";
+import useFileUrl from "../../hooks/useFileUrl";
 import { toast } from "sonner";
 
 function fileCategory(item) {
@@ -15,13 +15,11 @@ function fileCategory(item) {
 
 export default function FileViewerModal({ item, tableId, onClose, isPresenting, presenterData }) {
   const category = fileCategory(item);
-  const fileUrl = buildFileUrl(item.url);
-  const downloadUrl = fileUrl ? `${fileUrl}${fileUrl.includes("?") ? "&" : "?"}download=true` : "";
+  const { url: fileUrl, error: fileError } = useFileUrl(item.url);
 
   const [presenting, setPresenting] = useState(isPresenting || false);
   const videoRef = useRef(null);
   const [pdfPage, setPdfPage] = useState(1);
-  const [pdfPages] = useState(1);
 
   // Listen for presenter sync events
   useRTEvent((evt) => {
@@ -67,11 +65,6 @@ export default function FileViewerModal({ item, tableId, onClose, isPresenting, 
     });
   };
 
-  const handlePdfPage = (newPage) => {
-    const p = Math.max(1, Math.min(pdfPages, newPage));
-    setPdfPage(p);
-    if (presenting) broadcastSync({ type: "pdf", page: p });
-  };
 
   // Escape to close
   useEffect(() => {
@@ -109,16 +102,17 @@ export default function FileViewerModal({ item, tableId, onClose, isPresenting, 
               {presenting ? <><MonitorOff size={13} /> Stop</> : <><Monitor size={13} /> Present to Table</>}
             </button>
           )}
-          <a href={downloadUrl} style={iconBtn} data-testid="file-viewer-download" title="Download">
+          {fileUrl && <a href={fileUrl} download={item.name} style={iconBtn} data-testid="file-viewer-download" title="Download" aria-label="Download file">
             <Download size={16} color="#fff" />
-          </a>
-          <button onClick={onClose} style={iconBtn} data-testid="file-viewer-close"><X size={16} color="#fff" /></button>
+          </a>}
+          <button onClick={onClose} aria-label="Close file viewer" style={iconBtn} data-testid="file-viewer-close"><X size={16} color="#fff" /></button>
         </div>
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: 16 }}>
-        {category === "image" && (
+        {!fileUrl && <p role={fileError ? "alert" : "status"} style={{ color: "#fff" }}>{fileError || "Loading file…"}</p>}
+        {fileUrl && category === "image" && (
           <img
             src={fileUrl}
             alt={item.name}
@@ -127,7 +121,7 @@ export default function FileViewerModal({ item, tableId, onClose, isPresenting, 
           />
         )}
 
-        {category === "video" && (
+        {fileUrl && category === "video" && (
           // eslint-disable-next-line jsx-a11y/media-has-caption -- user-uploaded video, no caption track available
           <video
             ref={videoRef}
@@ -142,27 +136,19 @@ export default function FileViewerModal({ item, tableId, onClose, isPresenting, 
           />
         )}
 
-        {category === "pdf" && (
+        {fileUrl && category === "pdf" && (
           <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
             <iframe
               src={`${fileUrl}#page=${pdfPage}`}
               title={item.name}
+              sandbox="allow-scripts"
               style={{ flex: 1, width: "100%", maxWidth: 900, border: "none", borderRadius: 8, background: "#fff" }}
               data-testid="file-viewer-pdf"
             />
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10, color: "#fff" }}>
-              <button onClick={() => handlePdfPage(pdfPage - 1)} disabled={pdfPage <= 1} style={navBtn} data-testid="pdf-prev">
-                <ChevronLeft size={16} />
-              </button>
-              <span style={{ fontSize: 13 }}>Page {pdfPage}</span>
-              <button onClick={() => handlePdfPage(pdfPage + 1)} style={navBtn} data-testid="pdf-next">
-                <ChevronRight size={16} />
-              </button>
-            </div>
           </div>
         )}
 
-        {category === "other" && (
+        {fileUrl && category === "other" && (
           <div style={{ textAlign: "center", color: "#fff" }}>
             <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.4 }}>
               <Download size={48} />
@@ -191,10 +177,4 @@ const iconBtn = {
   background: "rgba(255,255,255,0.1)", cursor: "pointer",
   display: "flex", alignItems: "center", justifyContent: "center",
   textDecoration: "none",
-};
-
-const navBtn = {
-  width: 36, height: 36, borderRadius: "50%", border: "none",
-  background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer",
-  display: "flex", alignItems: "center", justifyContent: "center",
 };

@@ -119,16 +119,15 @@ export default function ContactsView({ onAdd, onInvite }) {
             </div>
           </div>
         </div>
-        <div className="card" style={{ padding: 12, flex: 1, display: "flex", alignItems: "center", gap: 10, opacity: 0.6 }}>
-          <Mail size={16} color="var(--text-tertiary)" />
+        <div className="card" style={{ padding: 12, flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+          <Mail size={16} color={bridgeStatus.email_configured ? "var(--mac-green)" : "var(--text-tertiary)"} />
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
               Email Bridge
-              <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 8, background: "var(--mac-orange)", color: "#fff", fontWeight: 700, letterSpacing: 0.5 }} data-testid="email-coming-soon">
-                COMING SOON
-              </span>
             </div>
-            <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>Reach people via email — launching soon</div>
+            <div style={{ fontSize: 10, color: bridgeStatus.email_configured ? "var(--mac-green)" : "var(--text-secondary)" }}>
+              {bridgeStatus.email_configured ? "Active — email connected" : "Not configured"}
+            </div>
           </div>
         </div>
       </div>

@@ -6,6 +6,10 @@
 
 ---
 
+## Launch readiness
+
+See [LAUNCH_READINESS.md](LAUNCH_READINESS.md) for fixes, verification, deployment steps, and remaining launch gates. Run `python check_launch.py` from `backend/` for the isolated HTTPS launch gate. Run `backend/preflight.py` against an existing database before enabling the new unique indexes.
+
 ## Version Info
 
 | Field | Value |
@@ -44,7 +48,7 @@
 # Optional: VAPID keys, TWILIO creds, ANTHROPIC_API_KEY (Smart Suggestions)
 ```
 
-The `render.yaml` at the repo root defines both the backend (Python web service) and frontend (static site). The production backend starts through `backend/app.py`, which exposes the existing FastAPI application and adds the browser-safe authentication response required by the separate Render domains. SQLite and uploads are configured under `/opt/data`, backed by a Render persistent disk on the backend service. Render persistent disks require a paid web service; without the disk, local file changes are ephemeral across deploys/restarts.
+The `render.yaml` at the repo root defines both the backend (Python web service) and frontend (static site). The production backend starts through `backend/app.py`, which exposes the canonical FastAPI application. Its login and registration routes directly return secure cookies and bearer authentication for separate Render domains. SQLite and uploads are configured under `/opt/data`, backed by a Render persistent disk on the backend service. Render persistent disks require a paid web service; without the disk, local file changes are ephemeral across deploys/restarts.
 
 ---
 
@@ -66,7 +70,7 @@ The `render.yaml` at the repo root defines both the backend (Python web service)
 Roundtable_VO/
 ├── render.yaml                    # Render Blueprint (frontend + backend)
 ├── backend/
-│   ├── app.py                     # Production entrypoint and cross-origin auth response
+│   ├── app.py                     # Production entrypoint for the canonical API
 │   ├── server.py                  # Core FastAPI application, Iteration 18a
 │   ├── requirements.txt           # Slim Render-ready dependencies
 │   ├── .env.example               # All required env vars documented
