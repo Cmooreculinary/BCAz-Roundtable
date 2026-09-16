@@ -26,7 +26,7 @@ import PingToast from "../components/PingToast";
 import IncomingCallToast from "../components/IncomingCallToast";
 import BadgeUnlock from "../components/BadgeUnlock";
 import { api } from "../lib/api";
-import { useWebSocket, useRTEvent } from "../lib/realtime";
+import { useWebSocket, useRTEvent, sendWS } from "../lib/realtime";
 import { subscribeToPush, isPushSupported, getPushPermission } from "../lib/push";
 import logger from "../lib/logger";
 
@@ -94,6 +94,9 @@ export default function MainShell() {
         break;
       case "call_incoming":
         setIncomingCall(evt);
+        break;
+      case "call_cancelled":
+        setIncomingCall((current) => current?.call_id === evt.call_id ? null : current);
         break;
       case "presence":
       case "user_updated":
@@ -166,7 +169,9 @@ export default function MainShell() {
   };
 
   const declineIncomingCall = () => {
+    const call = incomingCall;
     setIncomingCall(null);
+    if (call?.call_id) sendWS({ type: "call_decline", call_id: call.call_id });
   };
 
   return (

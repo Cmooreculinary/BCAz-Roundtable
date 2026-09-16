@@ -349,3 +349,130 @@ def test_calling_tab_disconnect_ends_call_even_with_idle_tab_open(application):
         assert server.ws_manager.is_online(owner_id)
         idle.send_json({"type": "ping"})
         assert idle.receive_json()["type"] == "pong"
+
+
+def test_simultaneous_call_starts_allow_only_one_active_call(application):
+    server, client = application
+    owner_id, _ = register(client)
+    target_id, _ = register(client)
+
+    async def exercise():
+        outcomes = await asyncio.gather(
+            server._handle_call_start(
+                owner_id, {"call_id": "tab-call-a", "target_user": target_id}
+            ),
+            server._handle_call_start(
+                owner_id, {"call_id": "tab-call-b", "target_user": target_id}
+            ),
+            return_exceptions=True,
+        )
+        assert sum(isinstance(outcome, server.HTTPException) for outcome in outcomes) == 1
+        assert len(server.active_calls) == 1
+        assert server.user_call_map[owner_id] in {"tab-call-a", "tab-call-b"}
+        await server._handle_call_leave(owner_id, {})
+
+    asyncio.run(exercise())
+
+
+def test_direct_call_decline_notifies_caller_and_clears_call(application):
+    server, client = application
+    owner_id, _ = register(client)
+    target_id, _ = register(client)
+    sent = []
+
+    async def capture(user_id, payload):
+        sent.append((user_id, payload))
+
+    async def exercise():
+        original = server.ws_manager.send_to_user
+        server.ws_manager.send_to_user = capture
+        try:
+            await server._handle_call_start(
+                owner_id, {"call_id": "declined-call", "target_user": target_id}
+            )
+            await server._handle_call_decline(target_id, {"call_id": "declined-call"})
+        finally:
+            server.ws_manager.send_to_user = original
+        assert (owner_id, {"type": "call_declined", "call_id": "declined-call", "from_user": target_id}) in sent
+        assert "declined-call" not in server.active_calls
+        assert owner_id not in server.user_call_map
+
+    asyncio.run(exercise())
+
+
+def test_decline_during_call_start_does_not_acknowledge_removed_call(application):
+    server, client = application
+    owner_id, _ = register(client)
+    target_id, _ = register(client)
+    incoming_seen = asyncio.Event()
+    release_incoming = asyncio.Event()
+
+    async def capture(user_id, payload):
+        if payload.get("type") == "call_incoming":
+            incoming_seen.set()
+            await release_incoming.wait()
+
+    async def exercise():
+        original = server.ws_manager.send_to_user
+        server.ws_manager.send_to_user = capture
+        try:
+            starter = asyncio.create_task(
+                server._handle_call_start(
+                    owner_id, {"call_id": "decline-race", "target_user": target_id}
+                )
+            )
+            await incoming_seen.wait()
+            await server._handle_call_decline(target_id, {"call_id": "decline-race"})
+            release_incoming.set()
+            await starter
+        finally:
+            server.ws_manager.send_to_user = original
+        assert "decline-race" not in server.active_calls
+
+    asyncio.run(exercise())
+
+
+def test_decline_from_second_tab_does_not_end_accepted_call(application):
+    server, client = application
+    owner_id, _ = register(client)
+    target_id, _ = register(client)
+
+    async def exercise():
+        await server._handle_call_start(
+            owner_id, {"call_id": "accepted-call", "target_user": target_id}
+        )
+        await server._handle_call_join(target_id, {"call_id": "accepted-call"})
+        await server._handle_call_decline(target_id, {"call_id": "accepted-call"})
+        assert server.active_calls["accepted-call"]["participants"] == {owner_id, target_id}
+        await server._handle_call_leave(owner_id, {"call_id": "accepted-call"})
+        await server._handle_call_leave(target_id, {"call_id": "accepted-call"})
+
+    asyncio.run(exercise())
+
+
+def test_decline_reserves_end_before_another_recipient_tab_can_join(application):
+    server, client = application
+    owner_id, _ = register(client)
+    target_id, _ = register(client)
+    messages = []
+
+    async def capture(user_id, payload):
+        messages.append(payload)
+        if payload.get("type") == "call_declined":
+            await server._handle_call_join(target_id, {"call_id": "decline-join-race"})
+
+    async def exercise():
+        await server._handle_call_start(
+            owner_id, {"call_id": "decline-join-race", "target_user": target_id}
+        )
+        original = server.ws_manager.send_to_user
+        server.ws_manager.send_to_user = capture
+        try:
+            await server._handle_call_decline(target_id, {"call_id": "decline-join-race"})
+        finally:
+            server.ws_manager.send_to_user = original
+        assert "decline-join-race" not in server.active_calls
+        assert target_id not in server.user_call_map
+        assert any(message.get("type") == "call_error" and message.get("call_id") == "decline-join-race" for message in messages)
+
+    asyncio.run(exercise())

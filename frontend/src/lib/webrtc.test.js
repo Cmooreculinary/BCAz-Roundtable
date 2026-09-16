@@ -115,3 +115,19 @@ test("lost signaling releases both microphone and peer connections", async () =>
   expect(getPeers().size).toBe(0);
   expect(getCallId()).toBeNull();
 });
+
+test("caller tears down immediately when recipient declines", async () => {
+  const id = await connectedCall();
+  emit({ type: "call_declined", call_id: id, from_user: "peer" });
+  await flush();
+  expect(track.stop).toHaveBeenCalled();
+  expect(getPeers().size).toBe(0);
+  expect(getCallId()).toBeNull();
+});
+
+test("generic stale call errors do not tear down the current call", async () => {
+  const id = await connectedCall();
+  emit({ type: "call_error", error: "An older call ended" });
+  await flush();
+  expect(getCallId()).toBe(id);
+});

@@ -274,6 +274,9 @@ active_calls: dict = {}
 user_call_map: dict = {}
 # Track the tab that owns each media call so other tabs can close independently.
 user_call_connections: dict = {}
+# WebSocket handlers run concurrently, including when two tabs start at once.
+# Serialize active-call state transitions so one user cannot create two calls.
+call_state_lock = asyncio.Lock()
 
 
 async def _handle_webrtc_message(user_id: str, msg: dict):
@@ -282,6 +285,7 @@ async def _handle_webrtc_message(user_id: str, msg: dict):
         "call_start": _handle_call_start,
         "call_join": _handle_call_join,
         "call_leave": _handle_call_leave,
+        "call_decline": _handle_call_decline,
         "webrtc_offer": _handle_sdp_relay,
         "webrtc_answer": _handle_sdp_relay,
         "webrtc_ice": _handle_ice_relay,
@@ -306,29 +310,38 @@ async def _handle_call_start(user_id: str, msg: dict):
             await ensure_table_member(table_id, target_user)
     elif not await db.users.find_one({"id": target_user}):
         raise HTTPException(status_code=404, detail="Call recipient not found")
-    if call_id in active_calls or await db.call_logs.find_one({"call_id": call_id}):
-        raise HTTPException(status_code=409, detail="Call already exists")
-    if user_id in user_call_map:
-        raise HTTPException(status_code=409, detail="Leave your current call first")
+    async with call_state_lock:
+        if call_id in active_calls or await db.call_logs.find_one({"call_id": call_id}):
+            raise HTTPException(status_code=409, detail="Call already exists")
+        if user_id in user_call_map:
+            raise HTTPException(status_code=409, detail="Leave your current call first")
 
-    active_calls[call_id] = {
-        "call_id": call_id, "table_id": table_id, "type": call_type,
-        "participants": {user_id}, "created_by": user_id,
-        "created_at": now_iso(), "target_user": target_user,
-    }
-    user_call_map[user_id] = call_id
-
-    try:
-        await db.call_logs.insert_one({
+        active_calls[call_id] = {
             "call_id": call_id, "table_id": table_id, "type": call_type,
-            "created_by": user_id, "target_user": target_user,
-            "participants": [user_id], "started_at": now_iso(),
-            "ended_at": None, "duration_seconds": 0, "status": "active",
-        })
-    except sqlite3.IntegrityError:
-        active_calls.pop(call_id, None)
-        user_call_map.pop(user_id, None)
-        raise HTTPException(status_code=409, detail="Call already exists") from None
+            "participants": {user_id}, "created_by": user_id,
+            "created_at": now_iso(), "target_user": target_user,
+        }
+        user_call_map[user_id] = call_id
+
+        try:
+            await db.call_logs.insert_one({
+                "call_id": call_id, "table_id": table_id, "type": call_type,
+                "created_by": user_id, "target_user": target_user,
+                "participants": [user_id], "started_at": now_iso(),
+                "ended_at": None, "duration_seconds": 0, "status": "active",
+            })
+        except sqlite3.IntegrityError:
+            active_calls.pop(call_id, None)
+            user_call_map.pop(user_id, None)
+            raise HTTPException(status_code=409, detail="Call already exists") from None
+
+    # Acknowledge the caller before notifying the recipient. The recipient can
+    # decline immediately; sending this first avoids a late acknowledgment of
+    # a call that the decline handler has already removed.
+    await ws_manager.send_to_user(user_id, {
+        "type": "call_started", "call_id": call_id,
+        "call_type": call_type, "participants": [user_id],
+    })
 
     caller = await db.users.find_one({"id": user_id}, {"_id": 0})
     caller_info = user_public(caller) if caller else {"id": user_id, "name": "Someone"}
@@ -336,6 +349,12 @@ async def _handle_call_start(user_id: str, msg: dict):
         "type": "call_incoming", "call_id": call_id,
         "call_type": call_type, "table_id": table_id, "caller": caller_info,
     }
+
+    # The caller may hang up as soon as the acknowledgment arrives. Avoid
+    # creating a new incoming toast for a call that has already ended.
+    async with call_state_lock:
+        if call_id not in active_calls:
+            return
 
     if target_user:
         await ws_manager.send_to_user(target_user, incoming_payload)
@@ -345,31 +364,35 @@ async def _handle_call_start(user_id: str, msg: dict):
     elif table_id:
         await ws_manager.broadcast_to_table(table_id, incoming_payload, exclude_user=user_id)
 
-    await ws_manager.send_to_user(user_id, {
-        "type": "call_started", "call_id": call_id,
-        "call_type": call_type, "participants": list(active_calls[call_id]["participants"]),
-    })
     logger.info(f"Call {call_id} started by {user_id} (type={call_type})")
 
 
 async def _handle_call_join(user_id: str, msg: dict):
     call_id = msg.get("call_id")
     if not call_id or call_id not in active_calls:
-        await ws_manager.send_to_user(user_id, {"type": "call_error", "error": "Call not found or ended"})
+        await ws_manager.send_to_user(user_id, {"type": "call_error", "error": "Call not found or ended", "call_id": call_id})
         return
 
-    call = active_calls[call_id]
+    call = active_calls.get(call_id)
+    if not call:
+        await ws_manager.send_to_user(user_id, {"type": "call_error", "error": "Call not found or ended", "call_id": call_id})
+        return
     if call.get("table_id"):
         await ensure_table_member(call["table_id"], user_id)
     elif user_id not in (call["created_by"], call.get("target_user")):
         raise HTTPException(status_code=403, detail="Not invited to this call")
-    if user_id in call["participants"]:
-        return
-    if user_id in user_call_map:
-        raise HTTPException(status_code=409, detail="Leave your current call first")
-    existing_participants = list(call["participants"])
-    call["participants"].add(user_id)
-    user_call_map[user_id] = call_id
+    async with call_state_lock:
+        call = active_calls.get(call_id)
+        if not call:
+            await ws_manager.send_to_user(user_id, {"type": "call_error", "error": "Call not found or ended", "call_id": call_id})
+            return
+        if user_id in call["participants"]:
+            return
+        if user_id in user_call_map:
+            raise HTTPException(status_code=409, detail="Leave your current call first")
+        existing_participants = list(call["participants"])
+        call["participants"].add(user_id)
+        user_call_map[user_id] = call_id
 
     await db.call_logs.update_one({"call_id": call_id}, {"$addToSet": {"participants": user_id}})
 
@@ -397,29 +420,74 @@ async def _handle_call_join(user_id: str, msg: dict):
 
 async def _handle_call_leave(user_id: str, msg: dict):
     call_id = msg.get("call_id") or user_call_map.get(user_id)
-    if not (call_id and call_id in active_calls):
+    if not call_id:
         return
 
-    call = active_calls[call_id]
-    if user_id not in call["participants"]:
-        raise HTTPException(status_code=403, detail="Not a call participant")
-    call["participants"].discard(user_id)
-    user_call_map.pop(user_id, None)
-    user_call_connections.pop(user_id, None)
+    async with call_state_lock:
+        if call_id not in active_calls:
+            return
+        call = active_calls[call_id]
+        if user_id not in call["participants"]:
+            raise HTTPException(status_code=403, detail="Not a call participant")
+        call["participants"].discard(user_id)
+        user_call_map.pop(user_id, None)
+        user_call_connections.pop(user_id, None)
+        remaining_participants = list(call["participants"])
+        should_finalize = not remaining_participants
+        if should_finalize:
+            # Remove it while holding the state lock so a simultaneous join
+            # cannot attach to a call that is already ending.
+            active_calls.pop(call_id, None)
+
+    # A direct callee never becomes a participant until accepting. Tell its
+    # incoming-call UI when the caller hangs up or times out.
+    if should_finalize and call.get("target_user"):
+        await ws_manager.send_to_user(call["target_user"], {
+            "type": "call_cancelled", "call_id": call_id,
+        })
 
     leaver = await db.users.find_one({"id": user_id}, {"_id": 0})
     leaver_info = user_public(leaver) if leaver else {"id": user_id}
 
-    for pid in list(call["participants"]):
+    for pid in remaining_participants:
         await ws_manager.send_to_user(pid, {
             "type": "call_peer_left", "call_id": call_id,
             "peer": leaver_info, "participants": list(call["participants"]),
         })
 
-    if not call["participants"]:
+    if should_finalize:
         await _finalize_call_log(call_id, call)
-        active_calls.pop(call_id, None)
     logger.info(f"User {user_id} left call {call_id}")
+
+
+async def _handle_call_decline(user_id: str, msg: dict):
+    """Tell a direct caller that the recipient declined the incoming call."""
+    call_id = msg.get("call_id")
+    if not call_id:
+        return
+    async with call_state_lock:
+        call = active_calls.get(call_id)
+        if not call:
+            return
+        if call.get("target_user") != user_id:
+            raise HTTPException(status_code=403, detail="Not the call recipient")
+        # Group-call decline is local to the recipient; it cannot end the room.
+        # A second tab also cannot decline a call another tab already accepted.
+        if call.get("table_id") or user_id in call["participants"]:
+            return
+        caller_id = call["created_by"]
+        # Reserve the end atomically before sending any notification. A second
+        # recipient tab must not join between checking and ending the call.
+        active_calls.pop(call_id, None)
+        user_call_map.pop(caller_id, None)
+        user_call_connections.pop(caller_id, None)
+    await _finalize_call_log(call_id, call)
+    await ws_manager.send_to_user(caller_id, {
+        "type": "call_declined", "call_id": call_id, "from_user": user_id,
+    })
+    await ws_manager.send_to_user(user_id, {
+        "type": "call_cancelled", "call_id": call_id,
+    })
 
 
 async def _finalize_call_log(call_id: str, call: dict):
@@ -2555,7 +2623,7 @@ async def _route_ws_message(user_id: str, msg: dict, websocket: WebSocket):
         await ws_manager.send_to_user(msg["to_user"], {
             "type": "typing", "from_user": user_id, "table_id": msg.get("table_id")
         })
-    elif msg_type in ("call_start", "call_join", "call_leave", "webrtc_offer", "webrtc_answer", "webrtc_ice", "walkie_talk_state"):
+    elif msg_type in ("call_start", "call_join", "call_leave", "call_decline", "webrtc_offer", "webrtc_answer", "webrtc_ice", "walkie_talk_state"):
         previous_call = user_call_map.get(user_id)
         await _handle_webrtc_message(user_id, msg)
         if not previous_call and user_id in user_call_map:
@@ -2575,21 +2643,33 @@ async def _cleanup_ws_disconnect(user_id: str, websocket: WebSocket):
         return
     if owner_socket is None and ws_manager.is_online(user_id):
         return
-    user_call_connections.pop(user_id, None)
-    call_id = user_call_map.pop(user_id, None)
-    if call_id and call_id in active_calls:
-        call = active_calls[call_id]
-        call["participants"].discard(user_id)
+    async with call_state_lock:
+        user_call_connections.pop(user_id, None)
+        call_id = user_call_map.pop(user_id, None)
+        call = active_calls.get(call_id) if call_id else None
+        if call:
+            call["participants"].discard(user_id)
+            remaining_participants = list(call["participants"])
+            should_finalize = not remaining_participants
+        else:
+            remaining_participants = []
+            should_finalize = False
+        if should_finalize and call_id:
+            active_calls.pop(call_id, None)
+    if call:
+        if should_finalize and call.get("target_user"):
+            await ws_manager.send_to_user(call["target_user"], {
+                "type": "call_cancelled", "call_id": call_id,
+            })
         leaver = await db.users.find_one({"id": user_id}, {"_id": 0})
         leaver_info = user_public(leaver) if leaver else {"id": user_id}
-        for pid in list(call["participants"]):
+        for pid in remaining_participants:
             await ws_manager.send_to_user(pid, {
                 "type": "call_peer_left", "call_id": call_id,
                 "peer": leaver_info, "participants": list(call["participants"]),
             })
-        if not call["participants"]:
+        if should_finalize:
             await _finalize_call_log(call_id, call)
-            active_calls.pop(call_id, None)
 
 
 @app.websocket("/api/ws")
