@@ -72,6 +72,7 @@ function connect(onOpen) {
 
   socket.onclose = () => {
     socket = null;
+    emit({ type: "connection_closed" });
     if (pingInterval) {
       clearInterval(pingInterval);
       pingInterval = null;
@@ -95,6 +96,7 @@ function scheduleReconnect() {
 }
 
 export function disconnectWebSocket() {
+  emit({ type: "connection_closed" });
   reconnectEnabled = false;
   clearTimers();
   if (socket) {
