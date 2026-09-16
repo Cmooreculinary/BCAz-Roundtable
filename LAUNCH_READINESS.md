@@ -1,3 +1,36 @@
+# Launch follow-up — 2026-09-16
+
+**Status: code fixes verified locally; public launch remains gated.**
+
+Branch: `codex/roundtable-launch-2026-09-16`, based on merged `main` at `0eb2ced` (PR #68).
+Target: `main`. No dependency, database schema, pricing, or hosting architecture changes.
+
+## Fixes in this follow-up
+
+- **VERIFIED:** File uploads now use the shared bearer-authenticated API client and a browser-generated multipart boundary. Cross-site cookies are no longer the upload's only authentication path. Sharing notes, links, prayers, and files reports failures, prevents duplicate submissions, and leaves retry available. Link entry accepts only HTTP/HTTPS.
+- **VERIFIED:** Calls wait for server acknowledgment, reject disconnected signaling, time out after 15 seconds without acknowledgment, and stop late microphone/camera streams when canceled. Only existing peers create offers; joining peers answer. Early ICE candidates are queued until a remote description exists. Stale call events are ignored.
+- **VERIFIED:** Closing the call overlay or losing the WebSocket releases local media and peer connections. Parent rerenders no longer invalidate the call lifecycle. The backend tracks the owning WebSocket: closing an unrelated tab preserves the call; losing the calling tab ends its call even if another tab remains open.
+- **VERIFIED:** Deleted calendar events no longer trigger SMS reminders. Scheduling remains UTC; this change does not establish a new time-zone policy.
+- **VERIFIED:** The live landing page's “Experience Roundtable” link returned signed-out visitors to `/login` because `/gather` is protected. The button now says “Watch introduction” and opens the existing public MP4. The MP4 returned HTTP 200 with `video/mp4`. The authenticated prototype remains protected, including its prototype pricing preview. Launch pricing approval was not supplied.
+
+## Evidence and limits
+
+- **VERIFIED:** 102 isolated backend checks pass, including new tests for both multiple-tab disconnect cases and canceled-event reminders.
+- **VERIFIED:** 65 frontend tests pass, including call signaling/media lifecycle, overlay teardown, and authenticated upload regressions. Zero-warning frontend lint, fatal Python lint, and the production build pass with the Render backend hostname.
+- **VERIFIED:** Python and npm runtime audits report zero known vulnerabilities. The full npm build/development tree still reports 31 advisories (14 high, 8 moderate, 9 low). Six backend deprecation warnings remain.
+- **VERIFIED:** Both configured Render endpoints responded with HTTP 200; backend health reported `status: ok`. A live Chromium browser rendered the sign-in page and reproduced the preview-link redirect. These public observations do not establish which backend commit is deployed or verify signed-in production flows.
+- **VERIFIED:** No tracked files contain the removed legacy vendor name. No production records were changed and no real SMS/email/push recipients were contacted during this follow-up.
+- **OPEN:** Full signed-in browser testing, actual camera/microphone exchange, Safari/mobile behavior, TURN/cross-network calling, provider delivery, production data preflight, backup restoration, persistence after a production restart, and capacity remain unverified. Regression tests with mocked browser media do not substitute for real-device calls. No production deployment was performed; this session has no connected Render deployment-management tool.
+
+## Next launch gate
+
+1. Review and merge this follow-up into `main`; coordinate frontend/backend deployment and reload existing tabs. Preserve the JWT secret and persistent data. No dependency change was made here; if the PR #68 dependency release has not been deployed, use Render's **Clear build cache & deploy**.
+2. Complete the production preflight and off-service backup/restore steps below before approving launch. Confirm the frontend origin, backend URL, single backend process, disk, and uploads persist.
+3. Exercise two real test accounts through login, invite, table, message, file upload/download, call, disconnect/reconnect, and logout, including cross-site-cookie blocking. Verify a call over different networks and provision/test TURN before promising reliable calling.
+4. **ARCHITECTURE-LEVEL — route through Conrad/EXPO:** approve launch access and account recovery/verification, paid-provider abuse/spend controls, per-user shared-record retention, launch cohort/load target, development-toolchain risk, and launch pricing. Existing prototype prices are not launch authorization. Keep public launch gated until those decisions and required live tests are complete.
+
+---
+
 # Launch readiness — 2026-09-10
 
 **Status: verified locally; public launch is not certified.**

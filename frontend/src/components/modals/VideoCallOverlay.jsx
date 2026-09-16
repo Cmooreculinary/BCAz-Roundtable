@@ -3,7 +3,7 @@ import { Mic, MicOff, Video, VideoOff, PhoneOff, Users, Maximize2, Minimize2 } f
 import {
   startCall, joinCall, leaveCall,
   getLocalStream, getPeers, onCallStateChange,
-  toggleMute, toggleCamera, getCallType,
+  toggleMute, toggleCamera, getCallType, isInCall,
 } from "../../lib/webrtc";
 import { toast } from "sonner";
 
@@ -15,44 +15,41 @@ export default function VideoCallOverlay({ target, incomingCallId, callType: pro
   const [expanded, setExpanded] = useState(false);
   const localVideoRef = useRef(null);
   const mountedRef = useRef(true);
-  const initRef = useRef(false);
+  const initialCallRef = useRef({ target, incomingCallId, propCallType });
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
-  // Initialize call
+  // The overlay owns its call until unmount, including a pending media prompt.
   useEffect(() => {
-    if (initRef.current) return;
-    initRef.current = true;
     mountedRef.current = true;
-
+    let cancelled = false;
+    const ownsCall = !isInCall();
+    const initial = initialCallRef.current;
     const init = async () => {
       try {
-        const type = propCallType || "video";
-        if (incomingCallId) {
-          await joinCall(incomingCallId, type);
+        const type = initial.propCallType || "video";
+        if (initial.incomingCallId) {
+          await joinCall(initial.incomingCallId, type);
         } else {
-          await startCall({
-            targetUser: target?.id,
-            type,
-          });
+          await startCall({ targetUser: initial.target?.id, type });
         }
-        if (!mountedRef.current) return;
+        if (cancelled) return;
         setConnecting(false);
-        // Set local video
-        const ls = getLocalStream();
-        if (localVideoRef.current && ls) {
-          localVideoRef.current.srcObject = ls;
-        }
-      } catch (err) {
-        if (!mountedRef.current) return;
-        toast.error(err.message || "Could not start call");
-        onClose?.();
+        const stream = getLocalStream();
+        if (localVideoRef.current && stream) localVideoRef.current.srcObject = stream;
+      } catch (error) {
+        if (cancelled) return;
+        toast.error(error.message || "Could not start call");
+        closeRef.current?.();
       }
     };
     init();
-
     return () => {
+      cancelled = true;
       mountedRef.current = false;
+      if (ownsCall) leaveCall();
     };
-  }, [target, incomingCallId, propCallType, onClose]);
+  }, []);
 
   // Listen for call state changes
   useEffect(() => {
@@ -70,6 +67,7 @@ export default function VideoCallOverlay({ target, incomingCallId, callType: pro
       }
       if (event === "call_ended" || event === "error") {
         if (event === "error") toast.error(data?.error || "Call error");
+        closeRef.current?.();
       }
     });
     return off;

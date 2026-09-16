@@ -24,6 +24,8 @@ def application(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "_auth_attempts", server.defaultdict(server.deque))
     monkeypatch.setattr(server, "active_calls", {})
     monkeypatch.setattr(server, "user_call_map", {})
+    monkeypatch.setattr(server, "user_call_connections", {})
+    monkeypatch.setattr(server, "ws_manager", server.WSManager())
     monkeypatch.setattr(server, "TWILIO_ACCOUNT_SID", None)
     monkeypatch.setattr(server, "RESEND_API_KEY", None)
     monkeypatch.setattr(server, "VAPID_PRIVATE_KEY", None)
@@ -262,3 +264,88 @@ def test_file_reference_cannot_grant_access_to_someone_elses_upload(application)
     )
     assert response.status_code == 403
     assert client.get(f"/api/files/{path}", headers=outsider).status_code == 403
+
+
+def test_closing_another_tab_preserves_active_call(application):
+    server, client = application
+    owner_id, owner = register(client)
+    target_id, _ = register(client)
+    token = owner["Authorization"].split()[1]
+    protocols = ["rt-v1", f"rt-auth.{token}"]
+    with client.websocket_connect("/api/ws", subprotocols=protocols) as first:
+        assert first.receive_json()["type"] == "ready"
+        first.send_json({"type": "call_start", "call_id": "multi-tab", "target_user": target_id})
+        assert first.receive_json()["type"] == "call_started"
+        with client.websocket_connect("/api/ws", subprotocols=protocols) as second:
+            assert second.receive_json()["type"] == "ready"
+        first.send_json({"type": "ping"})
+        assert first.receive_json()["type"] == "pong"
+        assert server.user_call_map[owner_id] == "multi-tab"
+        assert owner_id in server.active_calls["multi-tab"]["participants"]
+        first.close()
+        # Wait for the real disconnect event before TestClient cancels its task.
+        import time
+        deadline = time.monotonic() + 2
+        while owner_id in server.user_call_map and time.monotonic() < deadline:
+            time.sleep(0.01)
+    assert owner_id not in server.user_call_map
+    assert "multi-tab" not in server.active_calls
+
+
+def test_deleted_events_do_not_send_sms_reminders(application, monkeypatch):
+    from datetime import datetime, timezone
+    from unittest.mock import AsyncMock
+
+    server, _ = application
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 9, 16, 12, 0, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(server, "datetime", Clock)
+    monkeypatch.setattr(server, "TWILIO_ACCOUNT_SID", "isolated")
+    monkeypatch.setattr(server, "TWILIO_AUTH_TOKEN", "isolated")
+    monkeypatch.setattr(server, "TWILIO_FROM_NUMBER", "isolated")
+    sender = AsyncMock()
+    monkeypatch.setattr(server, "send_auto_sms_if_offline", sender)
+
+    async def exercise():
+        await server.db.events.insert_one({
+            "id": "cancelled", "title": "Cancelled meeting", "date": "2026-09-16",
+            "time": "13:00", "table_id": "table", "deleted_at": server.now_iso(),
+        })
+        await server.db.table_members.insert_one({"table_id": "table", "user_id": "member"})
+        await server._send_event_reminders()
+        sender.assert_not_awaited()
+        assert await server.db.notifications.count_documents({"type": "reminder_sent"}) == 0
+        await server.db.events.insert_one({
+            "id": "live", "title": "Live meeting", "date": "2026-09-16",
+            "time": "13:00", "table_id": "table",
+        })
+        await server._send_event_reminders()
+        sender.assert_awaited_once()
+    asyncio.run(exercise())
+
+
+def test_calling_tab_disconnect_ends_call_even_with_idle_tab_open(application):
+    import time
+
+    server, client = application
+    owner_id, owner = register(client)
+    target_id, _ = register(client)
+    protocols = ["rt-v1", f"rt-auth.{owner['Authorization'].split()[1]}"]
+    with client.websocket_connect("/api/ws", subprotocols=protocols) as idle:
+        assert idle.receive_json()["type"] == "ready"
+        with client.websocket_connect("/api/ws", subprotocols=protocols) as caller:
+            assert caller.receive_json()["type"] == "ready"
+            caller.send_json({"type": "call_start", "call_id": "owned-call", "target_user": target_id})
+            assert caller.receive_json()["type"] == "call_started"
+            assert idle.receive_json()["type"] == "call_started"
+            caller.close()
+            deadline = time.monotonic() + 2
+            while owner_id in server.user_call_map and time.monotonic() < deadline:
+                time.sleep(0.01)
+        assert owner_id not in server.user_call_map
+        assert server.ws_manager.is_online(owner_id)
+        idle.send_json({"type": "ping"})
+        assert idle.receive_json()["type"] == "pong"

@@ -37,7 +37,7 @@ export default function Login() {
           <span className="roundtable-landing__eyebrow">One place for every circle</span>
           <h1>Your people.<br />Their world.<br /><em>One Roundtable.</em></h1>
           <p>Family dinner. Leadership meeting. Team strategy. Trail planning. Bible study. Every gathering gets the room it deserves.</p>
-          <a className="roundtable-landing__watch" href="/gather"><Play size={15} fill="currentColor" /> Experience Roundtable</a>
+          <a className="roundtable-landing__watch" href="/landing/roundtable-intro.mp4"><Play size={15} fill="currentColor" /> Watch introduction</a>
         </div>
       </section>
       <section className="onboard-card roundtable-landing__auth">

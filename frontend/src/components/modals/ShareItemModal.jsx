@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { X, UploadCloud, Image, FileText, Video, Music, Link2, StickyNote, Sheet, Presentation, HeartHandshake, Sparkles, CheckCircle } from "lucide-react";
-import { api, API, formatApiError } from "../../lib/api";
+import { api, formatApiError } from "../../lib/api";
 import { toast } from "sonner";
 
 const TYPES = [
@@ -35,49 +35,52 @@ export default function ShareItemModal({ tables = [], defaultTable, onClose, onS
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  const submittingRef = useRef(false);
   const submit = async () => {
+    if (submittingRef.current) return;
     if (!tableId) return toast.error("Pick a table");
-    if (type === "note" || type === "prayer" || type === "intention") {
-      if (!name.trim()) return toast.error("Give this a name");
-      await api.post(`/tables/${tableId}/items`, { type, name: name.trim(), url: note || undefined });
-      toast.success("Shared");
-      onShared?.();
-      return;
-    }
-    if (type === "link") {
-      if (!url.trim()) return toast.error("Paste a link");
-      await api.post(`/tables/${tableId}/items`, { type: "link", name: name.trim() || url, url });
-      toast.success("Shared");
-      onShared?.();
-      return;
-    }
-    // file upload
+    const isNote = ["note", "prayer", "intention"].includes(type);
     const file = fileRef.current?.files?.[0];
-    if (!file) return toast.error("Pick a file to upload");
+    if (isNote && !name.trim()) return toast.error("Give this a name");
+    if (type === "link") {
+      try {
+        const parsed = new URL(url.trim());
+        if (!["https:", "http:"].includes(parsed.protocol)) throw new Error();
+      } catch {
+        return toast.error("Enter a complete http:// or https:// link");
+      }
+    } else if (!isNote && !file) {
+      return toast.error("Pick a file to upload");
+    }
+    submittingRef.current = true;
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`${API}/upload`, { method: "POST", credentials: "include", body: fd });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        const error = new Error(`Upload failed: ${res.status}`);
-        error.response = { data: body };
-        throw error;
+      let payload;
+      if (isNote) {
+        payload = { type, name: name.trim(), url: note || undefined };
+      } else if (type === "link") {
+        payload = { type, name: name.trim() || url.trim(), url: url.trim() };
+      } else {
+        const fd = new FormData();
+        fd.append("file", file);
+        // Use the shared bearer-authenticated client; let the browser set the boundary.
+        const { data: up } = await api.post("/upload", fd, {
+          headers: { "Content-Type": undefined },
+        });
+        payload = {
+          type, name: name.trim() || file.name, url: up.storage_path,
+          file_size: up.size, mime_type: file.type,
+        };
       }
-      const up = await res.json();
-      await api.post(`/tables/${tableId}/items`, {
-        type,
-        name: name.trim() || file.name,
-        url: up.storage_path,
-        file_size: up.size,
-        mime_type: file.type,
-      });
+      await api.post(`/tables/${tableId}/items`, payload);
       toast.success("Shared");
       onShared?.();
-    } catch (e) {
-      toast.error(formatApiError(e, "Upload failed"));
-    } finally { setUploading(false); }
+    } catch (error) {
+      toast.error(formatApiError(error, "Could not share. Please try again."));
+    } finally {
+      submittingRef.current = false;
+      setUploading(false);
+    }
   };
 
   return (
@@ -89,7 +92,7 @@ export default function ShareItemModal({ tables = [], defaultTable, onClose, onS
       <div className="modal" role="dialog" aria-modal="true" data-testid="share-item-modal">
         <div style={{ padding: 16, borderBottom: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Share to the table</div>
-          <button className="btn btn-ghost" onClick={onClose}><X size={16} /></button>
+          <button className="btn btn-ghost" onClick={onClose} aria-label="Close sharing dialog"><X size={16} /></button>
         </div>
         <div style={{ padding: 16 }}>
           <label style={lbl} htmlFor="share-table-select">Table</label>
@@ -173,7 +176,7 @@ export default function ShareItemModal({ tables = [], defaultTable, onClose, onS
         </div>
         <div style={{ padding: 14, borderTop: "1px solid var(--border-light)", display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={submit} disabled={uploading} data-testid="share-submit">{uploading ? "Uploading…" : "Share"}</button>
+          <button className="btn btn-primary" onClick={submit} disabled={uploading} data-testid="share-submit">{uploading ? "Sharing…" : "Share"}</button>
         </div>
       </div>
     </div>

@@ -272,6 +272,8 @@ ws_manager = WSManager()
 active_calls: dict = {}
 # user_id -> call_id (quick lookup)
 user_call_map: dict = {}
+# Track the tab that owns each media call so other tabs can close independently.
+user_call_connections: dict = {}
 
 
 async def _handle_webrtc_message(user_id: str, msg: dict):
@@ -305,8 +307,6 @@ async def _handle_call_start(user_id: str, msg: dict):
     elif not await db.users.find_one({"id": target_user}):
         raise HTTPException(status_code=404, detail="Call recipient not found")
     if call_id in active_calls or await db.call_logs.find_one({"call_id": call_id}):
-        raise HTTPException(status_code=409, detail="Call already exists")
-    if call_id in active_calls:
         raise HTTPException(status_code=409, detail="Call already exists")
     if user_id in user_call_map:
         raise HTTPException(status_code=409, detail="Leave your current call first")
@@ -405,6 +405,7 @@ async def _handle_call_leave(user_id: str, msg: dict):
         raise HTTPException(status_code=403, detail="Not a call participant")
     call["participants"].discard(user_id)
     user_call_map.pop(user_id, None)
+    user_call_connections.pop(user_id, None)
 
     leaver = await db.users.find_one({"id": user_id}, {"_id": 0})
     leaver_info = user_public(leaver) if leaver else {"id": user_id}
@@ -756,7 +757,7 @@ async def _send_event_reminders():
     now = datetime.now(timezone.utc)
     today = now.date().isoformat()
     # Get all events for today
-    events = await db.events.find({"date": today}, {"_id": 0}).to_list(500)
+    events = await db.events.find({"date": today, "deleted_at": {"$exists": False}}, {"_id": 0}).to_list(500)
     for ev in events:
         try:
             event_time = datetime.fromisoformat(f"{ev['date']}T{ev.get('time', '12:00')}:00+00:00")
@@ -2555,7 +2556,10 @@ async def _route_ws_message(user_id: str, msg: dict, websocket: WebSocket):
             "type": "typing", "from_user": user_id, "table_id": msg.get("table_id")
         })
     elif msg_type in ("call_start", "call_join", "call_leave", "webrtc_offer", "webrtc_answer", "webrtc_ice", "walkie_talk_state"):
+        previous_call = user_call_map.get(user_id)
         await _handle_webrtc_message(user_id, msg)
+        if not previous_call and user_id in user_call_map:
+            user_call_connections[user_id] = websocket
     elif msg_type in ("present_start", "present_sync", "present_stop"):
         table_id = msg.get("table_id")
         if table_id:
@@ -2564,7 +2568,14 @@ async def _route_ws_message(user_id: str, msg: dict, websocket: WebSocket):
 
 
 async def _cleanup_ws_disconnect(user_id: str, websocket: WebSocket):
-    """Clean up active calls and disconnect user on WS close."""
+    """Only the owning tab's disconnect ends its media call."""
+    owner_socket = user_call_connections.get(user_id)
+    await ws_manager.disconnect(user_id, websocket)
+    if owner_socket is not None and owner_socket is not websocket:
+        return
+    if owner_socket is None and ws_manager.is_online(user_id):
+        return
+    user_call_connections.pop(user_id, None)
     call_id = user_call_map.pop(user_id, None)
     if call_id and call_id in active_calls:
         call = active_calls[call_id]
@@ -2579,7 +2590,6 @@ async def _cleanup_ws_disconnect(user_id: str, websocket: WebSocket):
         if not call["participants"]:
             await _finalize_call_log(call_id, call)
             active_calls.pop(call_id, None)
-    await ws_manager.disconnect(user_id, websocket)
 
 
 @app.websocket("/api/ws")
@@ -2602,7 +2612,7 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 await _route_ws_message(user_id, msg, websocket)
             except HTTPException as error:
-                await websocket.send_json({"type": "call_error" if str(msg.get("type", "")).startswith(("call_", "webrtc_", "walkie_")) else "error", "error": error.detail})
+                await websocket.send_json({"type": "call_error" if str(msg.get("type", "")).startswith(("call_", "webrtc_", "walkie_")) else "error", "error": error.detail, "call_id": msg.get("call_id")})
     except WebSocketDisconnect:
         pass
     except Exception as e:
