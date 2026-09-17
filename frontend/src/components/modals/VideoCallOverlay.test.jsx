@@ -55,3 +55,11 @@ test("a rejected second call does not end an existing call on unmount", async ()
   root = null;
   expect(leaveCall).not.toHaveBeenCalled();
 });
+
+test("does not start a call when there is no peer target", async () => {
+  const closed = jest.fn();
+  await act(async () => root.render(<VideoCallOverlay onClose={closed} />));
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(startCall).not.toHaveBeenCalled();
+  expect(closed).toHaveBeenCalledTimes(1);
+});

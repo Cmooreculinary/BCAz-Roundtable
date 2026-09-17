@@ -8,6 +8,7 @@ import { TABLE_GESTURES, isStageVenue } from "../lib/scenes";
 import HelpTip from "../components/rt/HelpTip";
 import { UploadCloud, Video, Users, Calendar, Send, FileText, Image, MessageSquare, HeartHandshake, Armchair, Trash2, Settings2 } from "lucide-react";
 import { toast } from "sonner";
+import { toLocalDateKey } from "../lib/dates";
 import { useAuth } from "../contexts/AuthContext";
 import { useRTEvent } from "../lib/realtime";
 import SmartSuggestions from "../components/SmartSuggestions";
@@ -22,6 +23,7 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [table, setTable] = useState(null);
+  const [loadError, setLoadError] = useState("");
   const [seats, setSeats] = useState([]);
   const [msgText, setMsgText] = useState("");
   const [messages, setMessages] = useState([]);
@@ -60,8 +62,11 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
       const { data } = await api.get(`/tables/${id}`);
       setTable(data);
       setSeats(data.seats || []);
+      setLoadError("");
     } catch (e) {
-      toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+      const message = formatApiErrorDetail(e.response?.data?.detail) || e.message;
+      setLoadError(message);
+      toast.error(message);
     }
   }, [id]);
 
@@ -73,6 +78,8 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
   }, [id]);
 
   useEffect(() => {
+    setTable(null);
+    setLoadError("");
     load();
     loadMessages();
     // Reduced polling — WS handles realtime
@@ -183,16 +190,36 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
     }
   };
 
+  if (loadError && !table) {
+    return (
+      <div style={{ padding: 40, textAlign: "center" }} data-testid="table-load-error">
+        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Couldn’t open this table</div>
+        <div className="text-mute" style={{ fontSize: 13, marginBottom: 16 }}>{loadError}</div>
+        <button type="button" className="btn btn-primary" onClick={load} data-testid="table-retry-btn">Try again</button>
+      </div>
+    );
+  }
+
   if (!table) {
-    return <div style={{ padding: 40, color: "var(--text-secondary)" }}>Loading table…</div>;
+    return <div style={{ padding: 40, color: "var(--text-secondary)" }} data-testid="table-loading">Loading table…</div>;
   }
 
   const live = table.active;
   // A stage venue has no chairs to claim — the house seats itself, and every
   // guest drives their own avatar from the action bar.
   const stageVenue = isStageVenue(table.scene?.room);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateKey();
   const prayerCount = (table.items || []).filter((it) => it.type === "prayer" || it.type === "intention").length;
+  const upcomingEvents = (table.events || []).filter((e) => e.date >= today).slice(0, 4);
+  const otherMember = (table.members || []).find((m) => m.id !== user.id);
+
+  const startTableCall = () => {
+    if (!otherMember) {
+      toast.info("Invite someone to this table before starting a call.");
+      return;
+    }
+    onVideoCall?.(otherMember);
+  };
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto" }}>
@@ -210,14 +237,14 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
             {table.member_count} member{table.member_count !== 1 ? "s" : ""} · {table.active_count} online · {table.items?.length || 0} shared item{table.items?.length === 1 ? "" : "s"}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="table-toolbar">
           {isOwnerOrAdmin && (
             <button className="btn btn-secondary" onClick={() => setSceneEditorOpen(true)} data-testid="table-edit-scene-btn">
               <Settings2 size={14} /> Edit Experience
             </button>
           )}
           <button className="btn btn-secondary" onClick={() => onInvite?.(table)} data-testid="table-invite-btn"><Users size={14} /> Invite</button>
-          <button className="btn btn-secondary" onClick={() => onVideoCall?.(table.members?.find((m) => m.id !== user.id))} data-testid="table-video-btn"><Video size={14} /> Video Call</button>
+          <button className="btn btn-secondary" onClick={startTableCall} data-testid="table-video-btn"><Video size={14} /> Video Call</button>
           <button className="btn btn-primary" onClick={() => onShare?.(table)} data-testid="table-share-btn"><UploadCloud size={14} /> Share</button>
           <button className="btn btn-ghost" onClick={deleteTable} data-testid="table-delete-btn" title="Delete table" style={{ color: "var(--mac-red)" }}><Trash2 size={14} /></button>
         </div>
@@ -332,9 +359,9 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
               <Calendar size={14} color="var(--mac-orange)" /> Upcoming Events
             </div>
-            {(!table.events || table.events.length === 0) ? (
-              <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>No events scheduled.</div>
-            ) : table.events.filter((e) => e.date >= today).slice(0, 4).map((e) => (
+            {upcomingEvents.length === 0 ? (
+              <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>No upcoming events.</div>
+            ) : upcomingEvents.map((e) => (
               <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-light)" }}>
                 <span style={{ width: 4, height: 30, background: e.color || table.color, borderRadius: 2 }} />
                 <div style={{ flex: 1 }}>
@@ -346,7 +373,15 @@ export default function TableView({ onShare, onInvite, onVideoCall }) {
                   </div>
                   <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{e.date} · {e.time}</div>
                 </div>
-                <button className="btn btn-ghost" onClick={async () => { await api.delete(`/events/${e.id}`); toast.success("Event deleted"); load(); }} data-testid={`event-delete-${e.id}`} style={{ color: "var(--mac-red)", padding: 4 }}><Trash2 size={12} /></button>
+                <button className="btn btn-ghost" onClick={async () => {
+                  try {
+                    await api.delete(`/events/${e.id}`);
+                    toast.success("Event deleted");
+                    load();
+                  } catch (err) {
+                    toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Could not delete event");
+                  }
+                }} data-testid={`event-delete-${e.id}`} style={{ color: "var(--mac-red)", padding: 4 }}><Trash2 size={12} /></button>
               </div>
             ))}
           </div>

@@ -65,7 +65,16 @@ export default function InvitesView({ tables, onOpenInvite }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Invites & Referrals</h1>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-secondary" onClick={async () => { if (window.confirm("Move all invites to trash?")) { await api.delete("/invites/clear-all"); toast.success("All invites trashed"); load(); }}} data-testid="invites-clear-all" style={{ color: "var(--mac-red)" }}><Trash2 size={14} /> Clear All</button>
+          <button className="btn btn-secondary" onClick={async () => {
+            if (!window.confirm("Move all invites to trash?")) return;
+            try {
+              await api.delete("/invites/clear-all");
+              toast.success("All invites trashed");
+              load();
+            } catch (err) {
+              toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Could not clear invites");
+            }
+          }} data-testid="invites-clear-all" style={{ color: "var(--mac-red)" }}><Trash2 size={14} /> Clear All</button>
           <button className="btn btn-primary" onClick={onOpenInvite} data-testid="invites-new-btn"><Plus size={14} /> New Invite</button>
         </div>
       </div>

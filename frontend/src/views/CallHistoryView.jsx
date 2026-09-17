@@ -68,7 +68,16 @@ export default function CallHistoryView({ onVideoCall }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Last 30 days</div>
           {calls.length > 0 && (
-            <button className="btn btn-secondary" onClick={async () => { if (window.confirm("Move all call history to trash?")) { await api.delete("/calls/history"); toast.success("Call history cleared"); load(); }}} data-testid="calls-clear-all" style={{ color: "var(--mac-red)", fontSize: 11 }}><Trash2 size={12} /> Clear</button>
+            <button className="btn btn-secondary" onClick={async () => {
+              if (!window.confirm("Move all call history to trash?")) return;
+              try {
+                await api.delete("/calls/history");
+                toast.success("Call history cleared");
+                load();
+              } catch (err) {
+                toast.error("Could not clear call history");
+              }
+            }} data-testid="calls-clear-all" style={{ color: "var(--mac-red)", fontSize: 11 }}><Trash2 size={12} /> Clear</button>
           )}
         </div>
       </div>

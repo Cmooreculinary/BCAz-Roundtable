@@ -30,8 +30,10 @@ export default function VideoCallOverlay({ target, incomingCallId, callType: pro
         const type = initial.propCallType || "video";
         if (initial.incomingCallId) {
           await joinCall(initial.incomingCallId, type);
+        } else if (!initial.target?.id) {
+          throw new Error("Invite someone before starting a call.");
         } else {
-          await startCall({ targetUser: initial.target?.id, type });
+          await startCall({ targetUser: initial.target.id, type });
         }
         if (cancelled) return;
         setConnecting(false);

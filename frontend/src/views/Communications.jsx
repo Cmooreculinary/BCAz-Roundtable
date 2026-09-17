@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { api, formatApiErrorDetail } from "../lib/api";
-import { Mail, Send, Star, Inbox, Trash2, MessageSquare, Radio, X, Reply } from "lucide-react";
+import { Mail, Send, Star, Inbox, Trash2, MessageSquare, Radio, X, Reply, ChevronLeft } from "lucide-react";
 import EmptyState from "../components/rt/EmptyState";
 import HelpTip from "../components/rt/HelpTip";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import UserAvatar from "../components/UserAvatar";
 import logger from "../lib/logger";
+import { useNavigate } from "react-router-dom";
 
 export default function Communications({ tables, onVideoCall }) {
   const [tab, setTab] = useState("email");
@@ -57,13 +58,21 @@ function EmailPane() {
 
   const open = async (e) => {
     setSelected(e);
-    if (!e.read) { await api.post(`/emails/${e.id}/read`); load(); }
+    setComposing(false);
+    if (!e.read) {
+      try { await api.post(`/emails/${e.id}/read`); load(); }
+      catch (err) { logger.error("Failed to mark email read:", err); }
+    }
   };
 
   const toggleStar = async (e) => {
-    await api.post(`/emails/${e.id}/star`);
-    load();
-    if (selected?.id === e.id) setSelected({ ...selected, starred: !selected.starred });
+    try {
+      await api.post(`/emails/${e.id}/star`);
+      load();
+      if (selected?.id === e.id) setSelected({ ...selected, starred: !selected.starred });
+    } catch (err) {
+      toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Could not update star");
+    }
   };
 
   const send = async () => {
@@ -76,8 +85,8 @@ function EmailPane() {
   };
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", minHeight: 520 }}>
-      <div style={{ borderRight: "1px solid var(--border-light)", overflowY: "auto" }}>
+    <div className={`split-pane split-pane--comms ${selected || composing ? "is-detail" : ""}`} data-testid="email-split">
+      <div className="split-pane__list" style={{ borderRight: "1px solid var(--border-light)", overflowY: "auto" }}>
         <div style={{ display: "flex", borderBottom: "1px solid var(--border-light)" }}>
           {["inbox", "sent", "starred", "trash"].map((f) => (
             <button key={f} className={`tab ${folder === f ? "active" : ""}`} onClick={() => { setFolder(f); setSelected(null); }} data-testid={`email-folder-${f}`} style={{ flex: 1, fontSize: 10, padding: "8px 4px" }}>
@@ -102,15 +111,25 @@ function EmailPane() {
               <div style={{ fontSize: 12, fontWeight: e.read ? 400 : 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.subject}</div>
               <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>{e.from_name}</div>
             </button>
-            <button className="btn btn-ghost" onClick={async () => { await api.delete(`/emails/${e.id}`); toast.success("Email trashed"); load(); }} data-testid={`email-del-${e.id}`} style={{ color: "var(--mac-red)", padding: 2, flexShrink: 0 }}><Trash2 size={11} /></button>
+            <button className="btn btn-ghost" type="button" onClick={async () => {
+              try {
+                await api.delete(`/emails/${e.id}`);
+                toast.success("Email trashed");
+                if (selected?.id === e.id) setSelected(null);
+                load();
+              } catch (err) {
+                toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Could not delete email");
+              }
+            }} data-testid={`email-del-${e.id}`} style={{ color: "var(--mac-red)", padding: 2, flexShrink: 0 }}><Trash2 size={11} /></button>
           </div>
         ))}
       </div>
 
-      <div style={{ padding: 18, overflowY: "auto" }}>
+      <div className="split-pane__detail" style={{ padding: 18, overflowY: "auto" }}>
         {composing ? (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <button type="button" className="btn btn-ghost split-pane-back" onClick={() => setComposing(false)} data-testid="email-compose-back"><ChevronLeft size={16} /></button>
               <div style={{ fontSize: 16, fontWeight: 600 }}>New Email</div>
               <button className="btn btn-ghost" onClick={() => setComposing(false)}><X size={14} /></button>
             </div>
@@ -128,7 +147,8 @@ function EmailPane() {
         ) : selected ? (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>{selected.subject}</div>
+              <button type="button" className="btn btn-ghost split-pane-back" onClick={() => setSelected(null)} data-testid="email-detail-back" aria-label="Back to inbox"><ChevronLeft size={16} /></button>
+              <div style={{ fontSize: 18, fontWeight: 700, flex: 1 }}>{selected.subject}</div>
               <div style={{ display: "flex", gap: 6 }}>
                 <button className="btn btn-ghost" onClick={() => toggleStar(selected)} data-testid="email-star-btn">
                   <Star size={14} fill={selected.starred ? "var(--mac-yellow)" : "none"} color={selected.starred ? "var(--mac-yellow)" : "currentColor"} />
@@ -145,7 +165,16 @@ function EmailPane() {
             <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", color: "var(--text-primary)" }}>{selected.body}</div>
             <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
               <button className="btn btn-secondary" onClick={() => { setComposing(true); setSelected(null); setForm({ to_user: selected.from_user, subject: `Re: ${selected.subject}`, body: `\n\n> ${selected.body}` }); }} data-testid="email-reply-btn"><Reply size={13} /> Reply</button>
-              <button className="btn btn-secondary" onClick={async () => { await api.delete(`/emails/${selected.id}`); toast.success("Email trashed"); setSelected(null); load(); }} data-testid="email-delete-btn" style={{ color: "var(--mac-red)" }}><Trash2 size={13} /> Delete</button>
+              <button className="btn btn-secondary" onClick={async () => {
+                try {
+                  await api.delete(`/emails/${selected.id}`);
+                  toast.success("Email trashed");
+                  setSelected(null);
+                  load();
+                } catch (err) {
+                  toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Could not delete email");
+                }
+              }} data-testid="email-delete-btn" style={{ color: "var(--mac-red)" }}><Trash2 size={13} /> Delete</button>
             </div>
           </div>
         ) : (
@@ -169,22 +198,30 @@ function TextsPane() {
 
   const loadThread = async (t) => {
     setTarget(t);
-    const { data } = await api.get(`/texts?with=${t.id}`);
-    setThread(data || []);
+    try {
+      const { data } = await api.get(`/texts?with=${t.id}`);
+      setThread(data || []);
+    } catch (err) {
+      toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Could not load texts");
+    }
   };
 
   const isMineCheck = (m) => m.from_user === user?.id;
 
   const send = async () => {
     if (!input.trim() || !target) return;
-    await api.post("/texts", { to_user: target.id, text: input.trim() });
-    setInput("");
-    loadThread(target);
+    try {
+      await api.post("/texts", { to_user: target.id, text: input.trim() });
+      setInput("");
+      loadThread(target);
+    } catch (err) {
+      toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Could not send text");
+    }
   };
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", minHeight: 520 }}>
-      <div style={{ borderRight: "1px solid var(--border-light)", overflowY: "auto" }}>
+    <div className={`split-pane split-pane--comms ${target ? "is-detail" : ""}`} data-testid="texts-split">
+      <div className="split-pane__list" style={{ borderRight: "1px solid var(--border-light)", overflowY: "auto" }}>
         <div style={{ padding: "10px 12px", fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Contacts</div>
         {filteredMembers.map((m) => (
           <button
@@ -207,18 +244,29 @@ function TextsPane() {
           </button>
         ))}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", minHeight: 520 }}>
+      <div className="split-pane__detail" style={{ display: "flex", flexDirection: "column", minHeight: 520 }}>
         {!target ? (
           <EmptyState icon={<MessageSquare size={28} />} title="No conversation selected" subtitle="Pick a contact to start texting." testId="texts-empty" />
         ) : (
           <>
-            <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-light)", fontSize: 13, fontWeight: 600 }}>{target.name}</div>
+            <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-light)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+              <button type="button" className="btn btn-ghost split-pane-back" onClick={() => setTarget(null)} data-testid="texts-back" aria-label="Back to contacts"><ChevronLeft size={16} /></button>
+              {target.name}
+            </div>
             <div style={{ flex: 1, padding: 14, display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
               {thread.length === 0 && <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>No messages yet.</div>}
               {thread.map((m) => (
                 <div key={m.id} className="msg-row" style={{ display: "flex", alignItems: isMineCheck(m) ? "flex-end" : "flex-start", flexDirection: "column" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexDirection: isMineCheck(m) ? "row" : "row-reverse" }}>
-                    <button className="msg-delete-btn" onClick={async () => { await api.delete(`/messages/${m.id}`); toast.success("Deleted"); loadThread(target); }} style={{ opacity: 0, width: 20, height: 20, borderRadius: "50%", border: "none", background: "var(--bg-tertiary)", color: "var(--mac-red)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "opacity 0.15s", flexShrink: 0 }} data-testid={`text-del-${m.id}`}><Trash2 size={9} /></button>
+                    <button className="msg-delete-btn" onClick={async () => {
+                      try {
+                        await api.delete(`/messages/${m.id}`);
+                        toast.success("Deleted");
+                        loadThread(target);
+                      } catch (err) {
+                        toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Could not delete");
+                      }
+                    }} style={{ opacity: 0, width: 20, height: 20, borderRadius: "50%", border: "none", background: "var(--bg-tertiary)", color: "var(--mac-red)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "opacity 0.15s", flexShrink: 0 }} data-testid={`text-del-${m.id}`}><Trash2 size={9} /></button>
                     <div className={`bubble ${isMineCheck(m) ? "me" : "them"}`}>
                       {m.text}
                       {isMineCheck(m) && <div style={{ fontSize: 9, opacity: 0.5, textAlign: "right", marginTop: 2 }}>{m.read ? "Read" : "Sent"}</div>}
@@ -239,9 +287,10 @@ function TextsPane() {
 }
 
 function ChatPane() {
+  const navigate = useNavigate();
   return (
     <div style={{ padding: 30 }}>
-      <EmptyState icon={<Send size={28} />} title="Team chat" subtitle="Open Messages for full-screen chat conversations." testId="chat-preview-empty" />
+      <EmptyState icon={<Send size={28} />} title="Team chat" subtitle="Open Messages for full-screen chat conversations." action={<button type="button" className="btn btn-primary" onClick={() => navigate("/messages")} data-testid="chat-open-messages">Open Messages</button>} testId="chat-preview-empty" />
     </div>
   );
 }
