@@ -1,26 +1,32 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../lib/api";
+import { api, formatApiError } from "../lib/api";
 import EmptyState from "../components/rt/EmptyState";
 import { Calendar, FileText, Users, Zap, Share2, Bell, Plus, UploadCloud, MessageSquare, Radio, ChevronRight, Award, Inbox, AlertCircle, X, Trash2, Sparkles } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import logger from "../lib/logger";
+import { toLocalDateKey } from "../lib/dates";
 
-export default function Portal({ tables, notifications, loadTables, loadNotifications, onOpenInvite, onOpenShare, onCreateTable, onNewEvent, onGoto }) {
+export default function Portal({ tables, notifications, eventsEpoch = 0, loadTables, loadNotifications, onOpenInvite, onOpenShare, onCreateTable, onNewEvent, onGoto }) {
   const { user } = useAuth();
   const [events, setEvents] = useState([]);
   const [referrals, setReferrals] = useState({ invited: 0, joined: 0, badge: "No badge yet" });
   const [leaderboard, setLeaderboard] = useState([]);
   const [dismissedReminder, setDismissedReminder] = useState(false);
 
+  const loadEvents = () => api.get("/events").then((r) => setEvents(r.data || [])).catch((err) => {
+    logger.error("Failed to load events:", err);
+    toast.error(formatApiError(err, "Could not load today's events"));
+  });
+
   useEffect(() => {
-    api.get("/events").then((r) => setEvents(r.data || [])).catch(() => {});
+    loadEvents();
     api.get("/referrals").then((r) => setReferrals(r.data || {})).catch(() => {});
     api.get("/referrals/leaderboard").then((r) => setLeaderboard(r.data || [])).catch(() => {});
-  }, []);
+  }, [eventsEpoch]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateKey();
   const todayEvents = events.filter((e) => e.date === today);
   const recentItems = tables.flatMap((t) => (t.items || []).slice(0, 2).map((i) => ({ ...i, tableName: t.name, tableColor: t.color })))
     .slice(0, 5);
@@ -43,19 +49,12 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
       </div>
 
       {/* Setup reminder banner */}
-      <SetupReminder user={user} onGoto={onGoto} dismissed={dismissedReminder} onDismiss={() => setDismissedReminder(true)} />
+      <SetupReminder user={user} onGoto={onGoto} onCreateTable={onCreateTable} dismissed={dismissedReminder} onDismiss={() => setDismissedReminder(true)} />
 
       {/* Gather Experience launcher — investor demo */}
-      <div
-        role="button"
-        tabIndex={0}
+      <button
+        type="button"
         onClick={() => onGoto("/gather")}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onGoto("/gather");
-          }
-        }}
         data-testid="portal-gather-launcher"
         style={{
           position: "relative",
@@ -70,6 +69,10 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
           display: "flex",
           alignItems: "center",
           gap: 16,
+          width: "100%",
+          textAlign: "left",
+          font: "inherit",
+          color: "inherit",
           transition: "transform 0.25s var(--spring), box-shadow 0.25s",
         }}
         onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 36px rgba(0,0,0,0.45)"; }}
@@ -88,7 +91,7 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
           </div>
         </div>
         <ChevronRight size={20} color="rgba(255,255,255,0.7)" />
-      </div>
+      </button>
 
       {/* MY TABLES — prominent, full width */}
       <div className="card" style={{ padding: 14, marginBottom: 14 }}>
@@ -103,22 +106,16 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
             {tables.map((t) => (
-              <div
+              <button
+                type="button"
                 key={t.id}
-                role="button"
-                tabIndex={0}
                 onClick={() => onGoto(`/table/${t.id}`)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onGoto(`/table/${t.id}`);
-                  }
-                }}
                 data-testid={`portal-table-${t.id}`}
                 style={{
                   display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
                   background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", cursor: "pointer",
                   border: "1px solid var(--border-light)",
+                  width: "100%", textAlign: "left", font: "inherit", color: "inherit",
                   transition: "transform 0.2s var(--spring), box-shadow 0.2s",
                 }}>
                 <div style={{ width: 42, height: 42, borderRadius: "50%", background: t.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, flexShrink: 0 }}>
@@ -132,7 +129,7 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
                   <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{t.member_count} member{t.member_count !== 1 ? "s" : ""} · {t.active ? `${t.active_count} online` : "dormant"}</div>
                 </div>
                 <ChevronRight size={16} color="var(--text-tertiary)" />
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -151,7 +148,16 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{e.title}</div>
                 <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{e.time}</div>
               </div>
-              <button className="btn btn-ghost" onClick={async () => { await api.delete(`/events/${e.id}`); toast.success("Event trashed"); loadTables(); }} data-testid={`portal-event-del-${e.id}`} style={{ color: "var(--mac-red)", padding: 3 }}><Trash2 size={12} /></button>
+              <button className="btn btn-ghost" type="button" aria-label={`Delete ${e.title}`} onClick={async () => {
+                if (!window.confirm(`Move "${e.title}" to trash?`)) return;
+                try {
+                  await api.delete(`/events/${e.id}`);
+                  toast.success("Event trashed");
+                  loadEvents();
+                } catch (err) {
+                  toast.error(formatApiError(err, "Could not delete event"));
+                }
+              }} data-testid={`portal-event-del-${e.id}`} style={{ color: "var(--mac-red)", padding: 3 }}><Trash2 size={12} /></button>
             </div>
           ))}
         </Widget>
@@ -170,7 +176,16 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
                 <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>{it.tableName} · {timeAgo(it.created_at)}</div>
               </div>
               {it.id && it.table_id && (
-                <button className="btn btn-ghost" onClick={async () => { await api.delete(`/tables/${it.table_id}/items/${it.id}`); toast.success("Item trashed"); loadTables(); }} data-testid={`portal-item-del-${it.id}`} style={{ color: "var(--mac-red)", padding: 3 }}><Trash2 size={12} /></button>
+                <button className="btn btn-ghost" type="button" aria-label={`Delete ${it.name}`} onClick={async () => {
+                  if (!window.confirm(`Move "${it.name}" to trash?`)) return;
+                  try {
+                    await api.delete(`/tables/${it.table_id}/items/${it.id}`);
+                    toast.success("Item trashed");
+                    loadTables();
+                  } catch (err) {
+                    toast.error(formatApiError(err, "Could not delete item"));
+                  }
+                }} data-testid={`portal-item-del-${it.id}`} style={{ color: "var(--mac-red)", padding: 3 }}><Trash2 size={12} /></button>
               )}
             </div>
           ))}
@@ -191,7 +206,15 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
         {/* Notifications */}
         <Widget title="Notifications" icon={<Bell size={14} />} action={
           <div style={{ display: "flex", gap: 4 }}>
-            {recentNotifications.length > 0 && <button className="btn btn-ghost" onClick={async () => { await api.delete("/notifications/clear-all"); toast.success("Notifications cleared"); loadNotifications(); }} data-testid="portal-notif-clear" style={{ padding: 3, fontSize: 10, color: "var(--mac-red)" }}><Trash2 size={12} /></button>}
+            {recentNotifications.length > 0 && <button className="btn btn-ghost" type="button" onClick={async () => {
+              try {
+                await api.delete("/notifications/clear-all");
+                toast.success("Notifications cleared");
+                loadNotifications();
+              } catch (err) {
+                toast.error(formatApiError(err, "Could not clear notifications"));
+              }
+            }} data-testid="portal-notif-clear" style={{ padding: 3, fontSize: 10, color: "var(--mac-red)" }}><Trash2 size={12} /></button>}
             <button className="btn btn-ghost" onClick={() => onGoto("/notifications")} data-testid="widget-all-notifs" style={{ padding: 3, fontSize: 10 }}>All</button>
           </div>
         }>
@@ -236,7 +259,7 @@ export default function Portal({ tables, notifications, loadTables, loadNotifica
       </div>
 
       {/* Communications Hub — moved below tables */}
-      <CommsHub />
+      <CommsHub onGoto={onGoto} />
     </div>
   );
 }
@@ -282,7 +305,7 @@ function Stat({ label, value }) {
 }
 
 // Inline Communications Hub preview in Portal
-function CommsHub() {
+function CommsHub({ onGoto }) {
   const [tab, setTab] = useState("email");
   const [emails, setEmails] = useState([]);
   const [unreadCounts, setUnreadCounts] = useState({ email: 0, texts: 0, chat: 0 });
@@ -334,16 +357,16 @@ function CommsHub() {
             </div>
           ))
         )}
-        {tab === "texts" && <div style={{ fontSize: 13, color: "var(--text-secondary)", padding: "16px 0" }}>Go to <a href="/messages" style={{ color: "var(--mac-blue)", textDecoration: "none" }}>Messages</a> to see full SMS threads.</div>}
-        {tab === "chat" && <div style={{ fontSize: 13, color: "var(--text-secondary)", padding: "16px 0" }}>Open <a href="/messages" style={{ color: "var(--mac-blue)", textDecoration: "none" }}>Messages</a> for chat conversations.</div>}
-        {tab === "walkie" && <div style={{ fontSize: 13, color: "var(--text-secondary)", padding: "16px 0" }}>Open <a href="/walkie" style={{ color: "var(--mac-blue)", textDecoration: "none" }}>Walkie Talkie</a> to push-to-talk with members.</div>}
+        {tab === "texts" && <div style={{ fontSize: 13, color: "var(--text-secondary)", padding: "16px 0" }}>Go to <button type="button" className="btn btn-ghost" onClick={() => onGoto("/messages")} style={{ color: "var(--mac-blue)", padding: 0, height: "auto" }}>Messages</button> to see full SMS threads.</div>}
+        {tab === "chat" && <div style={{ fontSize: 13, color: "var(--text-secondary)", padding: "16px 0" }}>Open <button type="button" className="btn btn-ghost" onClick={() => onGoto("/messages")} style={{ color: "var(--mac-blue)", padding: 0, height: "auto" }}>Messages</button> for chat conversations.</div>}
+        {tab === "walkie" && <div style={{ fontSize: 13, color: "var(--text-secondary)", padding: "16px 0" }}>Open <button type="button" className="btn btn-ghost" onClick={() => onGoto("/walkie")} style={{ color: "var(--mac-blue)", padding: 0, height: "auto" }}>Walkie Talkie</button> to push-to-talk with members.</div>}
       </div>
     </div>
   );
 }
 
 
-function SetupReminder({ user, onGoto, dismissed, onDismiss }) {
+function SetupReminder({ user, onGoto, onCreateTable, dismissed, onDismiss }) {
   if (dismissed) return null;
   try {
     const raw = localStorage.getItem("rt-onboard-completed");
@@ -353,7 +376,7 @@ function SetupReminder({ user, onGoto, dismissed, onDismiss }) {
     if (!completed.avatar && !user?.avatar_url) missing.push({ label: "Choose an avatar", route: "/settings" });
     if (!completed.phone && !user?.phone) missing.push({ label: "Add your phone number", route: "/settings" });
     if (!completed.push) missing.push({ label: "Enable push notifications", route: "/settings" });
-    if (!completed.table) missing.push({ label: "Create your first table", route: null });
+    if (!completed.table) missing.push({ label: "Create your first table", action: "createTable" });
     if (missing.length === 0) return null;
     return (
       <div className="card" style={{ padding: "12px 16px", marginBottom: 14, borderLeft: "4px solid var(--mac-orange)", display: "flex", alignItems: "flex-start", gap: 10 }} data-testid="setup-reminder-banner">
@@ -362,13 +385,16 @@ function SetupReminder({ user, onGoto, dismissed, onDismiss }) {
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Finish setting up your Roundtable_VO</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {missing.map((m) => (
-              <button key={m.label} className="btn btn-secondary" onClick={() => m.route ? onGoto(m.route) : null} style={{ fontSize: 11, padding: "3px 10px" }} data-testid={`setup-reminder-${m.label.replace(/\s/g, "-").toLowerCase()}`}>
+              <button key={m.label} type="button" className="btn btn-secondary" onClick={() => {
+                if (m.action === "createTable") onCreateTable?.();
+                else if (m.route) onGoto(m.route);
+              }} style={{ fontSize: 11, padding: "3px 10px" }} data-testid={`setup-reminder-${m.label.replace(/\s/g, "-").toLowerCase()}`}>
                 {m.label}
               </button>
             ))}
           </div>
         </div>
-        <button className="btn btn-ghost" onClick={onDismiss} style={{ padding: 2 }} data-testid="setup-reminder-dismiss"><X size={14} /></button>
+        <button className="btn btn-ghost" type="button" onClick={onDismiss} style={{ padding: 2 }} data-testid="setup-reminder-dismiss"><X size={14} /></button>
       </div>
     );
   } catch (err) {

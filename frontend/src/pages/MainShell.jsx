@@ -42,6 +42,7 @@ export default function MainShell() {
   const [badge, setBadge] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [eventsEpoch, setEventsEpoch] = useState(0);
   const [modals, setModals] = useState({
     createTable: false, newEvent: false, addContact: false,
     shareItem: false, invite: false, videoCall: false,
@@ -191,13 +192,13 @@ export default function MainShell() {
         {sidebarOpen && <div className="sidebar-backdrop" role="presentation" onClick={() => setSidebarOpen(false)} />}
         <main className="main-content" data-testid="main-content">
           <Routes>
-            <Route path="/" element={<Portal tables={tables} notifications={notifications} loadTables={loadTables} loadNotifications={loadNotifications} onOpenInvite={() => openModal("invite", { tables })} onOpenShare={() => openModal("shareItem", { tables })} onCreateTable={() => openModal("createTable")} onNewEvent={() => openModal("newEvent", { tables })} onGoto={nav} />} />
+            <Route path="/" element={<Portal tables={tables} notifications={notifications} eventsEpoch={eventsEpoch} loadTables={loadTables} loadNotifications={loadNotifications} onOpenInvite={() => openModal("invite", { tables })} onOpenShare={() => openModal("shareItem", { tables })} onCreateTable={() => openModal("createTable")} onNewEvent={() => openModal("newEvent", { tables })} onGoto={nav} />} />
             <Route path="/table/:id" element={<TableView onShare={(table) => openModal("shareItem", { tables, defaultTable: table })} onInvite={(table) => openModal("invite", { tables, defaultTable: table })} onVideoCall={(target) => openModal("videoCall", { target })} />} />
-            <Route path="/messages" element={<MessagesView onVideoCall={(target) => openModal("videoCall", { target })} onWalkie={(target) => openModal("videoCall", { target, callType: "audio" })} />} />
+            <Route path="/messages" element={<MessagesView onVideoCall={(target) => openModal("videoCall", { target })} onWalkie={(target) => openModal("videoCall", { target, callType: "audio" })} onShare={() => openModal("shareItem", { tables })} />} />
             <Route path="/communications" element={<Communications tables={tables} onVideoCall={(target) => openModal("videoCall", { target })} />} />
             <Route path="/walkie" element={<WalkieView onVideoCall={(target) => openModal("videoCall", { target })} />} />
             <Route path="/call-history" element={<CallHistoryView onVideoCall={(target, type) => openModal("videoCall", { target, callType: type })} />} />
-            <Route path="/calendar" element={<CalendarView onNew={() => openModal("newEvent", { tables })} tables={tables} />} />
+            <Route path="/calendar" element={<CalendarView onNew={(date) => openModal("newEvent", { tables, defaultDate: date })} tables={tables} />} />
             <Route path="/apps" element={<AppsView />} />
             <Route path="/contacts" element={<ContactsView onAdd={() => openModal("addContact")} onInvite={() => openModal("invite", { tables })} />} />
             <Route path="/invites" element={<InvitesView tables={tables} onOpenInvite={() => openModal("invite", { tables })} />} />
@@ -210,7 +211,7 @@ export default function MainShell() {
       <Dock currentPath={loc.pathname} onNav={nav} unreadCount={unreadCount} />
 
       {modals.createTable && <CreateTableModal onClose={() => closeModal("createTable")} onCreated={() => { loadTables(); closeModal("createTable"); }} />}
-      {modals.newEvent && <NewEventModal tables={modalProps.tables || tables} onClose={() => closeModal("newEvent")} onCreated={() => closeModal("newEvent")} />}
+      {modals.newEvent && <NewEventModal tables={modalProps.tables || tables} defaultDate={modalProps.defaultDate} onClose={() => closeModal("newEvent")} onCreated={() => { closeModal("newEvent"); setEventsEpoch((n) => n + 1); }} />}
       {modals.addContact && <AddContactModal onClose={() => closeModal("addContact")} onCreated={() => closeModal("addContact")} />}
       {modals.shareItem && <ShareItemModal tables={modalProps.tables || tables} defaultTable={modalProps.defaultTable} onClose={() => closeModal("shareItem")} onShared={() => { closeModal("shareItem"); loadTables(); }} />}
       {modals.invite && <InviteModal tables={modalProps.tables || tables} defaultTable={modalProps.defaultTable} onClose={() => closeModal("invite")} />}

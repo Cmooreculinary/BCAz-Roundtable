@@ -2,10 +2,11 @@ import React, { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { api, formatApiErrorDetail } from "../../lib/api";
 import { toast } from "sonner";
+import { toLocalDateKey } from "../../lib/dates";
 
-export default function NewEventModal({ tables = [], onClose, onCreated }) {
+export default function NewEventModal({ tables = [], defaultDate, onClose, onCreated }) {
   const [form, setForm] = useState({
-    title: "", date: new Date().toISOString().slice(0, 10), time: "12:00",
+    title: "", date: defaultDate || toLocalDateKey(), time: "12:00",
     table_id: "", description: "", location: "", recurring: "none",
   });
   const [busy, setBusy] = useState(false);
@@ -63,6 +64,7 @@ export default function NewEventModal({ tables = [], onClose, onCreated }) {
               { k: "monthly", l: "Monthly" },
             ].map((r) => (
               <button
+                type="button"
                 key={r.k}
                 onClick={() => setForm({ ...form, recurring: r.k })}
                 data-testid={`event-recurring-${r.k}`}

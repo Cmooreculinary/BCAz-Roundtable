@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../lib/api";
+import { api, formatApiError } from "../lib/api";
 import { Search, Check, UserPlus, Plus, MessageSquare, Phone, Mail, Trash2 } from "lucide-react";
 import EmptyState from "../components/rt/EmptyState";
 import HelpTip from "../components/rt/HelpTip";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export default function ContactsView({ onAdd, onInvite }) {
+  const navigate = useNavigate();
   const [contacts, setContacts] = useState([]);
   const [query, setQuery] = useState("");
   const [bridgeStatus, setBridgeStatus] = useState({ sms_configured: false, email_configured: false });
@@ -36,9 +38,14 @@ export default function ContactsView({ onAdd, onInvite }) {
   };
 
   const deleteContact = async (c) => {
-    await api.delete(`/contacts/${c.id}`);
-    toast.success(`${c.name} removed`);
-    load();
+    if (!window.confirm(`Remove ${c.name} from contacts?`)) return;
+    try {
+      await api.delete(`/contacts/${c.id}`);
+      toast.success(`${c.name} removed`);
+      load();
+    } catch (err) {
+      toast.error(formatApiError(err, "Could not remove contact"));
+    }
   };
 
   const matched = contacts.filter((c) => (c.name || "").toLowerCase().includes(query.toLowerCase()));
@@ -94,10 +101,10 @@ export default function ContactsView({ onAdd, onInvite }) {
       {contacts.length === 0 ? (
         <EmptyState icon={<UserPlus size={28} />} title="No contacts yet" subtitle="Add people to grow your network." action={<button className="btn btn-primary" onClick={onAdd} data-testid="contacts-empty-add">Add Contact</button>} testId="contacts-empty" />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div className="contacts-grid">
           <Section title={`On Roundtable_VO (${onApp.length})`} emptyMsg="Nobody from your contacts is on yet." color="var(--mac-green)">
             {onApp.map((c) => (
-              <Row key={c.id} contact={c} isMember onDelete={() => deleteContact(c)} />
+              <Row key={c.id} contact={c} isMember onDelete={() => deleteContact(c)} onChat={() => navigate(`/messages?with=${c.member_id}`)} />
             ))}
           </Section>
           <Section title={`Not on Roundtable_VO (${offApp.length})`} emptyMsg="Everyone's already in." color="var(--mac-blue)">
@@ -145,7 +152,7 @@ function Section({ title, emptyMsg, color, children }) {
   );
 }
 
-function Row({ contact, isMember, onInvite, smsEnabled, emailEnabled, onSms, onDelete }) {
+function Row({ contact, isMember, onInvite, smsEnabled, emailEnabled, onSms, onDelete, onChat }) {
   const init = (contact.name || "?").split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border-light)" }} data-testid={`contact-${contact.id}`}>
@@ -159,7 +166,7 @@ function Row({ contact, isMember, onInvite, smsEnabled, emailEnabled, onSms, onD
       </div>
       {isMember ? (
         <div style={{ display: "flex", gap: 4 }}>
-          <button className="btn btn-secondary" data-testid={`contact-chat-${contact.id}`}><MessageSquare size={12} /></button>
+          <button type="button" className="btn btn-secondary" onClick={onChat} aria-label={`Chat with ${contact.name}`} data-testid={`contact-chat-${contact.id}`}><MessageSquare size={12} /></button>
           <button className="btn btn-ghost" onClick={onDelete} data-testid={`contact-delete-${contact.id}`} style={{ color: "var(--mac-red)", padding: 4 }}><Trash2 size={12} /></button>
         </div>
       ) : (

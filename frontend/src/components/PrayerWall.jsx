@@ -98,7 +98,16 @@ export default function PrayerWall({ tableId, onShare }) {
                 <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{it.name}</div>
                 {it.url && <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{it.url}</div>}
               </div>
-              <button className="btn btn-ghost" onClick={async () => { await api.delete(`/tables/${tableId}/items/${it.id}`); toast.success("Removed"); load(); }} data-testid={`prayer-delete-${it.id}`} style={{ color: "var(--mac-red)", padding: 4, flexShrink: 0 }}><Trash2 size={13} /></button>
+              <button className="btn btn-ghost" onClick={async () => {
+                if (!window.confirm("Remove this prayer?")) return;
+                try {
+                  await api.delete(`/tables/${tableId}/items/${it.id}`);
+                  toast.success("Removed");
+                  load();
+                } catch (err) {
+                  toast.error("Could not remove this item");
+                }
+              }} data-testid={`prayer-delete-${it.id}`} style={{ color: "var(--mac-red)", padding: 4, flexShrink: 0 }}><Trash2 size={13} /></button>
             </div>
             <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
               {REACTIONS.map((r) => {

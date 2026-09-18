@@ -67,11 +67,7 @@ export default function GatherExperience() {
   return (
     <div style={{ minHeight: "100vh", background: "#0d0d0d", color: "#fff", fontFamily: "var(--font-sans)" }}>
       {/* Top nav */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 8, padding: "12px 20px",
-        background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)",
-        backdropFilter: "blur(20px)",
-      }}>
+      <div className="gather-top-nav">
         <a href="/" style={{ color: "rgba(255,255,255,0.5)", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
           <ArrowLeft size={14} /> Back to Roundtable_VO
         </a>
@@ -86,7 +82,7 @@ export default function GatherExperience() {
           </div>
         )}
         <div style={{ flex: 1 }} />
-        <div style={{ display: "flex", gap: 4 }}>
+        <div className="gather-tabs">
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
               display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
@@ -138,7 +134,7 @@ export default function GatherExperience() {
 // ══════════════════════════════════════════════
 function RoomBuilder({ config, set }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24 }}>
+    <div className="gather-builder-grid">
       <div>
         <SectionTitle>Choose Your Room</SectionTitle>
         <CardGrid items={ROOMS} selected={config.room} onSelect={(r) => set("room", r)} renderCard={(r, sel) => (
@@ -306,10 +302,10 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
       { delay: 3000, action: () => {} },
       { delay: 3000, action: () => {} },
       { delay: 2500, action: () => autoSeat() },
-      { delay: 3000, action: () => setChatMessages([{ from: "Chris", text: "Tonight we are looking at the launch path for Roundtable_VO and The Gather App.", color: "#007AFF" }]) },
-      { delay: 4000, action: () => setChatMessages((p) => [...p, { from: "Roy", text: "This makes the product immediately understandable. People can see the gathering before they use it.", color: "#FF9500" }]) },
-      { delay: 3500, action: () => setChatMessages((p) => [...p, { from: "Chef Simone", text: "Chef Table service is staged and ready.", color: "#FFCC00" }]) },
-      { delay: 3500, action: () => setChatMessages((p) => [...p, { from: "PM Lee", text: "Action items: finalize naming, prepare investor demo, define v1 feature set.", color: "#5AC8FA" }]) },
+      { delay: 3000, action: () => setChatMessages([{ id: "sim-1", from: "Chris", text: "Tonight we are looking at the launch path for Roundtable_VO and The Gather App.", color: "#007AFF" }]) },
+      { delay: 4000, action: () => setChatMessages((p) => [...p, { id: "sim-2", from: "Roy", text: "This makes the product immediately understandable. People can see the gathering before they use it.", color: "#FF9500" }]) },
+      { delay: 3500, action: () => setChatMessages((p) => [...p, { id: "sim-3", from: "Chef Simone", text: "Chef Table service is staged and ready.", color: "#FFCC00" }]) },
+      { delay: 3500, action: () => setChatMessages((p) => [...p, { id: "sim-4", from: "PM Lee", text: "Action items: finalize naming, prepare investor demo, define v1 feature set.", color: "#5AC8FA" }]) },
       { delay: 3000, action: () => setAiSummary("Roundtable_VO demo complete. Key value: configurable rooms, table settings, seated avatars, ambiance, service layer, and group tools in one visual gathering space.") },
       { delay: 4000, action: () => {} },
     ];
@@ -410,7 +406,7 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
         </div>
 
         {/* Side tool panel */}
-        <div style={{
+        <div className="gather-live-tools" style={{
           position: "absolute", right: 16, top: 60, bottom: 16,
           width: 52, display: "flex", flexDirection: "column", gap: 6,
           background: "rgba(0,0,0,0.4)", backdropFilter: "blur(16px)",
@@ -426,19 +422,22 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
             { icon: <Sparkles size={18} />, label: "AI" },
             { icon: <Link2 size={18} />, label: "Invite" },
           ].map((t) => (
-            <div key={t.label} title={t.label} style={{
-              width: 40, height: 40, borderRadius: 10,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "rgba(255,255,255,0.6)", cursor: "pointer",
-              transition: "background 0.2s, color 0.2s",
-            }}>{t.icon}</div>
+            <button
+              type="button"
+              key={t.label}
+              className="gather-tool-btn"
+              title={`${t.label} (demo preview)`}
+              aria-label={`${t.label} — simulated in this prototype`}
+              data-testid={`gather-tool-${t.label.toLowerCase()}`}
+              onClick={() => toast.info(`${t.label} is simulated in this visual prototype.`)}
+            >{t.icon}</button>
           ))}
         </div>
       </div>
 
       {/* Chat bubbles overlay */}
       {chatMessages.length > 0 && (
-        <div style={{
+        <div className="gather-chat-overlay" style={{
           position: "absolute", bottom: 80, left: 20, width: 360,
           display: "flex", flexDirection: "column", gap: 8,
         }}>
@@ -457,7 +456,7 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
 
       {/* AI Summary overlay */}
       {aiSummary && (
-        <div style={{
+        <div className="gather-ai-overlay" style={{
           position: "absolute", bottom: 80, right: 80, width: 380,
           background: "rgba(0,122,255,0.15)", backdropFilter: "blur(16px)",
           borderRadius: 14, padding: 16, border: "1px solid rgba(0,122,255,0.3)",
@@ -477,8 +476,8 @@ function LiveTableView({ config, seated, simRunning, simStep, setSimStep, setSim
             <button onClick={() => { setSimRunning(true); setSimStep(0); setChatMessages([]); setAiSummary(""); autoSeat(); }} style={actionBtn("#007AFF")} data-testid="live-start-sim"><Play size={14} /> Start Simulation</button>
             <button onClick={() => setTab("builder")} style={actionBtn("rgba(255,255,255,0.1)")}><Settings2 size={14} /> Change Room</button>
             <button onClick={() => setTab("seats")} style={actionBtn("rgba(255,255,255,0.1)")}><UserPlus size={14} /> Add Guest</button>
-            <button style={actionBtn("rgba(255,255,255,0.1)")}><Save size={14} /> Save Gathering</button>
-            <button style={actionBtn("#FF3B30")}><X size={14} /> End Gathering</button>
+            <button type="button" onClick={() => toast.success("Demo gathering noted. This preview does not persist a live table.")} style={actionBtn("rgba(255,255,255,0.1)")} data-testid="gather-save"><Save size={14} /> Save Gathering</button>
+            <button type="button" onClick={() => { setSimRunning(false); toast.info("Demo gathering ended."); }} style={actionBtn("#FF3B30")} data-testid="gather-end"><X size={14} /> End Gathering</button>
           </>
         )}
         {simRunning && (

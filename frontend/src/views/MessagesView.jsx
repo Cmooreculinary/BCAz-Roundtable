@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
-import { Search, Send, Paperclip, Phone, Video, Trash2 } from "lucide-react";
+import { Search, Send, Paperclip, Phone, Video, Trash2, ChevronLeft } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { useRTEvent } from "../lib/realtime";
@@ -25,8 +26,9 @@ function formatTime(iso) {
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-export default function MessagesView({ onVideoCall, onWalkie }) {
+export default function MessagesView({ onVideoCall, onWalkie, onShare }) {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [members, setMembers] = useState([]);
   const [active, setActive] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -52,8 +54,16 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (err) {
       logger.error("Failed to load messages:", err);
+      toast.error("Could not load this conversation");
     }
   }, []);
+
+  useEffect(() => {
+    const withId = searchParams.get("with");
+    if (!withId || !members.length) return;
+    const match = members.find((m) => m.id === withId);
+    if (match && active?.id !== match.id) open(match);
+  }, [searchParams, members, active?.id, open]);
 
   const send = async () => {
     if (!input.trim() || !active) return;
@@ -101,9 +111,9 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", height: "calc(100vh - 140px)" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", height: "100%", background: "var(--bg-secondary)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-sm)", overflow: "hidden" }}>
+      <div className={`split-pane ${active ? "is-detail" : ""}`} data-testid="messages-split" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-sm)", overflow: "hidden" }}>
         {/* Left panel — Conversations */}
-        <div style={{ borderRight: "1px solid var(--border-light)", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+        <div className="split-pane__list" style={{ borderRight: "1px solid var(--border-light)", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
           {/* Search */}
           <div style={{ padding: "12px 14px" }}>
             <div style={{
@@ -126,23 +136,18 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
             {filteredMembers.map((m) => {
               const isActive = active?.id === m.id;
               return (
-                <div
+                <button
+                  type="button"
                   key={m.id}
-                  role="button"
-                  tabIndex={0}
                   onClick={() => open(m)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      open(m);
-                    }
-                  }}
                   data-testid={`messages-person-${m.id}`}
+                  aria-pressed={isActive}
                   style={{
                     padding: "12px 14px", display: "flex", alignItems: "center", gap: 12,
-                    cursor: "pointer",
+                    cursor: "pointer", width: "100%", textAlign: "left", font: "inherit",
                     background: isActive ? "var(--mac-blue)" : "transparent",
                     color: isActive ? "#fff" : "var(--text-primary)",
+                    border: "none",
                     borderBottom: isActive ? "none" : "1px solid var(--border-light)",
                     transition: "background 0.15s",
                   }}
@@ -169,15 +174,16 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
                       )}
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
         </div>
 
         {/* Right panel — Chat */}
+        <div className="split-pane__detail">
         {!active ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)", fontSize: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)", fontSize: 14, height: "100%" }}>
             Select a conversation
           </div>
         ) : (
@@ -187,6 +193,9 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
               padding: "12px 18px", borderBottom: "1px solid var(--border-light)",
               display: "flex", alignItems: "center", gap: 12,
             }}>
+              <button type="button" className="btn btn-ghost split-pane-back" onClick={() => setActive(null)} aria-label="Back to conversations" data-testid="messages-back">
+                <ChevronLeft size={18} />
+              </button>
               <UserAvatar user={active} size={40} style={{ borderRadius: "50%" }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 16, fontWeight: 700 }}>{active.name}</div>
@@ -195,8 +204,10 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => onWalkie?.(active)}
                 className="btn btn-ghost"
+                aria-label="Audio call"
                 data-testid="messages-walkie-btn"
                 style={{
                   width: 40, height: 40, borderRadius: "50%", padding: 0,
@@ -206,8 +217,10 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
                 <Phone size={18} />
               </button>
               <button
+                type="button"
                 onClick={() => onVideoCall?.(active)}
                 className="btn btn-ghost"
+                aria-label="Video call"
                 data-testid="messages-video-btn"
                 style={{
                   width: 40, height: 40, borderRadius: "50%", padding: 0,
@@ -217,9 +230,11 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
                 <Video size={18} />
               </button>
               <button
+                type="button"
                 onClick={clearConversation}
                 className="btn btn-ghost"
                 data-testid="messages-clear-convo"
+                aria-label="Clear conversation"
                 title="Clear conversation"
                 style={{
                   width: 40, height: 40, borderRadius: "50%", padding: 0,
@@ -286,7 +301,18 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
               padding: "12px 16px", borderTop: "1px solid var(--border-light)",
               display: "flex", alignItems: "center", gap: 10,
             }}>
-              <button className="btn btn-ghost" style={{ padding: 6, color: "var(--text-secondary)" }} data-testid="messages-attach">
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ padding: 6, color: "var(--text-secondary)" }}
+                data-testid="messages-attach"
+                aria-label="Share a file from a table"
+                title="Share files from a table"
+                onClick={() => {
+                  if (onShare) onShare();
+                  else toast.info("Share files from a table using Share Item. Chat is text-only.");
+                }}
+              >
                 <Paperclip size={18} />
               </button>
               <div style={{
@@ -324,6 +350,7 @@ export default function MessagesView({ onVideoCall, onWalkie }) {
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
