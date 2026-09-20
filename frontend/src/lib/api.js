@@ -48,6 +48,12 @@ export function buildFileUrl(value) {
 }
 
 export function formatApiError(error, fallback = "Something went wrong. Please try again.") {
+  if (error?.code === "ECONNABORTED") {
+    return "The table is taking a moment to wake. Try once more.";
+  }
+  if (!error?.response && error?.message) {
+    return "Can't reach the table right now. Check your connection and retry.";
+  }
   const detail = error?.response?.data?.detail;
   if (detail != null) return formatApiErrorDetail(detail);
   return error?.message || fallback;
@@ -56,6 +62,7 @@ export function formatApiError(error, fallback = "Something went wrong. Please t
 export const api = createAxiosInstance({
   baseURL: API,
   withCredentials: true,
+  timeout: 20000,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -75,6 +82,27 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const config = error.config || {};
+    const status = error.response?.status;
+    const method = String(config.method || "get").toLowerCase();
+    const transient =
+      !error.response ||
+      status === 502 ||
+      status === 503 ||
+      status === 504 ||
+      error.code === "ECONNABORTED" ||
+      error.code === "ERR_NETWORK";
+    const canRetry = method === "get" && transient && !config.__rtRetry;
+    if (!canRetry) return Promise.reject(error);
+    config.__rtRetry = true;
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    return api.request(config);
+  },
+);
 
 export function formatApiErrorDetail(detail) {
   if (detail == null) return "Something went wrong. Please try again.";
