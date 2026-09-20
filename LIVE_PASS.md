@@ -1,11 +1,12 @@
 # Two-account live pass
 
-Run this on the live pair only.
+Run this on the Vercel frontend and persistent production API pair only.
 
-- App: https://roundtable-vo-frontend.onrender.com
-- API: https://roundtable-vo-backend.onrender.com/api/
+- App: record the Vercel production/custom-domain URL after the first deploy
+- API: record the persistent backend `/api/` URL after backend selection
 
-Use two real browsers or a normal window + a private window. Do not invent a third Render service to test this.
+Use two real browsers or a normal window + a private window. First confirm the frontend
+build's `REACT_APP_BACKEND_URL` and the backend's exact `CORS_ORIGINS`.
 
 ## Checklist
 
