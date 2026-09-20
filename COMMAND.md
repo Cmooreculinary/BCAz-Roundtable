@@ -1,6 +1,6 @@
 # COMMAND — BCAz Roundtable
 
-Last lock: 2026-09-20
+Last lock: 2026-09-20 03:55 CDT
 
 This file is the authority file. If another doc disagrees, this one wins.
 
@@ -24,14 +24,19 @@ This file is the authority file. If another doc disagrees, this one wins.
 - Backend is Starter + disk. It does not Free-tier sleep.
 - If the first load is slow, it is a deploy/restart, not idle spin-down.
 
-## Work now (only these)
+## Done this lock
 
-1. Two-account live pass on the URLs above: register, invite, message, share a file, start a call.
-2. Stop lying in the UI: wire or disable inert Gather / Portal buttons.
-3. Make `RoundTableViz` scale. Fixed 580px board clips on phones.
+- COMMAND.md on main (#74)
+- API timeout + one GET retry + clearer wake errors (#75)
+- Confirmed already in code: table viz `useStageFit`, Portal create-table wired, Gather Save/End labeled as demo, table load retry, video call blocked with toast when no other member
+- Hugging Face `transformers` Python stack: out of scope for this deploy
+
+## Work now (only this)
+
+1. Two-account live pass — see `LIVE_PASS.md`
 
 ## Not now
 
-Conrad, Jagers, Paladin, BCA XO, new slugs, Gather pricing.
+Conrad, Jagers, Paladin, BCA XO, new slugs, Gather pricing, `pip install transformers`.
 
 Tracker: issue #73
