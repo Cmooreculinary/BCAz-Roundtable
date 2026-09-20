@@ -16,7 +16,7 @@ See [LAUNCH_READINESS.md](LAUNCH_READINESS.md) for fixes, verification, deployme
 |-------|-------|
 | **Status** | PRIMARY — Active Development |
 | **Iteration** | 18a |
-| **Platform** | Render-ready as of 2026-07-18 |
+| **Platform** | Vercel frontend; persistent FastAPI host required |
 | **Stack** | React 19 + FastAPI + SQLite |
 | **Other versions** | `round-table` repo = Cloudflare/Hono edition (separate stack) |
 
@@ -32,23 +32,24 @@ See [LAUNCH_READINESS.md](LAUNCH_READINESS.md) for fixes, verification, deployme
 - **WebSocket co-viewing** — real-time file viewer sync
 - **Soft-delete architecture** — safe data recovery on all content
 - **DiceBear stylized avatars** — illustrated portrait system (Iteration 18)
-- **Cross-origin session continuity** — HttpOnly cookies remain enabled, with a session-scoped bearer fallback for browsers that block cookies between the separate Render frontend and backend domains
+- **Cross-origin session continuity** — HttpOnly cookies remain enabled, with a session-scoped bearer fallback for browsers that block cookies between separate frontend and backend domains
 
 ---
 
-## Deploy to Render
+## Deploy the frontend to Vercel
 
 ```bash
-# 1. Set environment variables (see backend/.env.example)
-# 2. Connect repo to Render — render.yaml handles both services
-
-# Required env vars:
-# SQLITE_PATH, JWT_SECRET, CORS_ORIGINS, UPLOAD_ROOT
-# Set ADMIN_PASSWORD once to seed the initial administrator; no default password exists.
-# Optional: VAPID keys, TWILIO creds, ANTHROPIC_API_KEY (Smart Suggestions)
+# 1. Import this repository (leave Root Directory at the repository root).
+# 2. Set REACT_APP_BACKEND_URL to the HTTPS production FastAPI URL.
+# 3. Deploy. vercel.json builds frontend/ and supplies the SPA fallback.
 ```
 
-The `render.yaml` at the repo root defines both the backend (Python web service) and frontend (static site). The production backend starts through `backend/app.py`, which exposes the canonical FastAPI application. Its login and registration routes directly return secure cookies and bearer authentication for separate Render domains. SQLite and uploads are configured under `/opt/data`, backed by a Render persistent disk on the backend service. Render persistent disks require a paid web service; without the disk, local file changes are ephemeral across deploys/restarts.
+The current backend is **not deployable as a Vercel Function**: it relies on long-lived
+WebSockets, process-local call/presence state, durable SQLite, and durable local uploads.
+Keep it on a persistent ASGI host (or migrate those capabilities) and set that host's
+`CORS_ORIGINS` to the exact Vercel production/custom-domain origin. Do not use a wildcard
+origin because credentialed CORS is enabled. Backend variables are documented in
+`backend/.env.example`; preserve `JWT_SECRET`, the database, and uploads when moving hosts.
 
 ---
 
@@ -68,11 +69,11 @@ The `render.yaml` at the repo root defines both the backend (Python web service)
 
 ```
 Roundtable_VO/
-├── render.yaml                    # Render Blueprint (frontend + backend)
+├── vercel.json                    # Vercel frontend build, routing, and headers
 ├── backend/
-│   ├── app.py                     # Production entrypoint for the canonical API
+│   ├── app.py                     # ASGI entrypoint for the canonical API
 │   ├── server.py                  # Core FastAPI application, Iteration 18a
-│   ├── requirements.txt           # Slim Render-ready dependencies
+│   ├── requirements.txt           # Production Python dependencies
 │   ├── .env.example               # All required env vars documented
 │   └── tests/                     # Launch, security, and integration tests
 ├── frontend/
@@ -156,4 +157,3 @@ CodeQL static analysis runs on every push to `main` and weekly on a schedule.
 ## License
 
 Proprietary — All Rights Reserved © Blue Collar Apps
-

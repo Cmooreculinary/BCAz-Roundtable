@@ -14,7 +14,7 @@ describe("API URL handling", () => {
     expect(normalizeBackendUrl()).toBe("http://localhost:8001");
   });
 
-  test("adds HTTPS to Render hostnames and removes a trailing slash", () => {
+  test("adds HTTPS to bare hostnames and removes a trailing slash", () => {
     expect(normalizeBackendUrl(" roundtable.example.com/ ")).toBe("https://roundtable.example.com");
   });
 
@@ -64,7 +64,8 @@ describe("API error handling", () => {
       .toBe("Invalid password");
   });
 
-  test("keeps useful network error messages", () => {
-    expect(formatApiError(new Error("Network Error"))).toBe("Network Error");
+  test("turns low-level network errors into an actionable message", () => {
+    expect(formatApiError(new Error("Network Error")))
+      .toBe("Can't reach the table right now. Check your connection and retry.");
   });
 });

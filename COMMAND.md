@@ -1,6 +1,6 @@
 # COMMAND — BCAz Roundtable
 
-Last lock: 2026-09-20 03:55 CDT
+Last lock: 2026-09-20
 
 This file is the authority file. If another doc disagrees, this one wins.
 
@@ -8,21 +8,22 @@ This file is the authority file. If another doc disagrees, this one wins.
 
 - Repo: `Cmooreculinary/BCAz-Roundtable`
 - Product name on screen: Roundtable_VO
-- Live app: https://roundtable-vo-frontend.onrender.com
-- Live API: https://roundtable-vo-backend.onrender.com/api/
-- Health: `{"service":"Roundtable_VO API","status":"ok"}`
+- Frontend target: Vercel (production URL pending first authenticated deploy)
+- Backend target: pending selection of a persistent ASGI/WebSocket host
+- Required frontend variable: `REACT_APP_BACKEND_URL=https://<backend-host>`
 
-## Dead names
+## Retired hosting
 
-- https://bcaz-roundtable.onrender.com — 404. Do not rebuild this slug.
-- Do not create another Roundtable Render service.
-- Do not treat other BCAz apps on Render as this product.
+- Render is no longer the deployment target. Do not create another Roundtable Render service.
+- `render.yaml` was removed to prevent an accidental Render deployment.
 
-## Sleep
+## Vercel boundary
 
-- Frontend is a static site. It does not sleep.
-- Backend is Starter + disk. It does not Free-tier sleep.
-- If the first load is slow, it is a deploy/restart, not idle spin-down.
+- Vercel hosts the static React frontend only.
+- Do not deploy the current FastAPI service as a Vercel Function. Calls and presence use
+  long-lived WebSockets and process-local state; SQLite and uploads require durable storage.
+- Production cannot launch until a persistent backend is selected and its URL is entered
+  in Vercel as `REACT_APP_BACKEND_URL`.
 
 ## Done this lock
 
@@ -33,7 +34,9 @@ This file is the authority file. If another doc disagrees, this one wins.
 
 ## Work now (only this)
 
-1. Two-account live pass — see `LIVE_PASS.md`
+1. Select and deploy the persistent backend host.
+2. Set its `CORS_ORIGINS` to the exact Vercel production origin.
+3. Set Vercel `REACT_APP_BACKEND_URL`, deploy, then run `LIVE_PASS.md`.
 
 ## Not now
 

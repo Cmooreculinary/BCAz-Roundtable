@@ -42,7 +42,7 @@ The following are **in scope**:
 
 The following are **out of scope**:
 
-- Third-party infrastructure (Render, Twilio, Anthropic, etc.)
+- Third-party infrastructure (Vercel, backend hosting, Twilio, Anthropic, etc.)
 - Social engineering attacks
 
 ## Security Measures in Place
@@ -51,7 +51,7 @@ The following are **out of scope**:
 - CodeQL static analysis on every push/PR to `main`
 - Secret scanning enabled at the repository level
 - No secrets stored in source code (use `.env` locally, platform env vars in production)
-- HTTPS enforced in production (Render)
+- HTTPS enforced in production
 - JWT-based authentication with configurable secrets
 
 ## Disclosure Policy

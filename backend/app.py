@@ -1,4 +1,4 @@
-"""Render entrypoint for the canonical FastAPI application.
+"""ASGI entrypoint for the canonical FastAPI application.
 
 Cookie and bearer authentication are returned by the same core routes so
 router implementation changes cannot shadow the cross-origin token response.
