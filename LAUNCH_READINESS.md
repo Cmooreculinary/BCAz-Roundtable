@@ -2,23 +2,25 @@
 
 **Status: code fixes verified locally; public launch remains gated.**
 
-Branch: `codex/roundtable-launch-2026-09-16`, based on merged `main` at `0eb2ced` (PR #68).
+Branch: `codex/roundtable-call-handoff-2026-09-16`, based on merged `main` at `2b71153` (PR #69).
+PR #69 contains the first follow-up fixes below; this final delegated pass adds call decline/cancellation and concurrency protection.
 Target: `main`. No dependency, database schema, pricing, or hosting architecture changes.
 
-## Fixes in this follow-up
+## Cumulative verified fixes
 
 - **VERIFIED:** File uploads now use the shared bearer-authenticated API client and a browser-generated multipart boundary. Cross-site cookies are no longer the upload's only authentication path. Sharing notes, links, prayers, and files reports failures, prevents duplicate submissions, and leaves retry available. Link entry accepts only HTTP/HTTPS.
 - **VERIFIED:** Calls wait for server acknowledgment, reject disconnected signaling, time out after 15 seconds without acknowledgment, and stop late microphone/camera streams when canceled. Only existing peers create offers; joining peers answer. Early ICE candidates are queued until a remote description exists. Stale call events are ignored.
 - **VERIFIED:** Closing the call overlay or losing the WebSocket releases local media and peer connections. Parent rerenders no longer invalidate the call lifecycle. The backend tracks the owning WebSocket: closing an unrelated tab preserves the call; losing the calling tab ends its call even if another tab remains open.
+- **VERIFIED:** The delegated final pass added serialized call-state transitions, direct-call decline/cancellation signals, call IDs on missing-call errors, and protection against stale errors or second-tab declines. Integration review made decline atomic before notification and kept group-call decline local.
 - **VERIFIED:** Deleted calendar events no longer trigger SMS reminders. Scheduling remains UTC; this change does not establish a new time-zone policy.
 - **VERIFIED:** The live landing page's “Experience Roundtable” link returned signed-out visitors to `/login` because `/gather` is protected. The button now says “Watch introduction” and opens the existing public MP4. The MP4 returned HTTP 200 with `video/mp4`. The authenticated prototype remains protected, including its prototype pricing preview. Launch pricing approval was not supplied.
 
 ## Evidence and limits
 
-- **VERIFIED:** 102 isolated backend checks pass, including new tests for both multiple-tab disconnect cases and canceled-event reminders.
-- **VERIFIED:** 65 frontend tests pass, including call signaling/media lifecycle, overlay teardown, and authenticated upload regressions. Zero-warning frontend lint, fatal Python lint, and the production build pass with the Render backend hostname.
+- **VERIFIED:** 107 isolated backend checks pass, including new tests for both multiple-tab disconnect cases and canceled-event reminders.
+- **VERIFIED:** 67 frontend tests pass, including call signaling/media lifecycle, overlay teardown, and authenticated upload regressions. Zero-warning frontend lint, fatal Python lint, and the production build pass with the Render backend hostname.
 - **VERIFIED:** Python and npm runtime audits report zero known vulnerabilities. The full npm build/development tree still reports 31 advisories (14 high, 8 moderate, 9 low). Six backend deprecation warnings remain.
-- **VERIFIED:** Both configured Render endpoints responded with HTTP 200; backend health reported `status: ok`. A live Chromium browser rendered the sign-in page and reproduced the preview-link redirect. These public observations do not establish which backend commit is deployed or verify signed-in production flows.
+- **VERIFIED:** Both configured Render endpoints responded with HTTP 200; backend health reported `status: ok`. Live anonymous requests to profiles, tables, and files returned 401/no-store; CORS preflight accepted the exact configured frontend origin and rejected an untrusted origin. A live Chromium browser rendered the sign-in page and reproduced the preview-link redirect. These public observations do not establish which backend commit is deployed or verify signed-in production flows.
 - **VERIFIED:** No tracked files contain the removed legacy vendor name. No production records were changed and no real SMS/email/push recipients were contacted during this follow-up.
 - **OPEN:** Full signed-in browser testing, actual camera/microphone exchange, Safari/mobile behavior, TURN/cross-network calling, provider delivery, production data preflight, backup restoration, persistence after a production restart, and capacity remain unverified. Regression tests with mocked browser media do not substitute for real-device calls. No production deployment was performed; this session has no connected Render deployment-management tool.
 

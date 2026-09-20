@@ -359,9 +359,16 @@ onRTEvent((evt) => {
       handleIce(evt);
       break;
     case "call_error":
+      // Errors without an ID may belong to another tab/request. Never let a
+      // stale generic error tear down the current call.
+      if (!evt.call_id) break;
       sendWS({ type: "call_leave", call_id: callId });
       cleanup(evt.error || "Call failed");
       notifyStateChange("error", { error: evt.error });
+      break;
+    case "call_declined":
+      cleanup("Call declined");
+      notifyStateChange("error", { error: "Call declined" });
       break;
     default:
       break;
