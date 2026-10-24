@@ -9,7 +9,7 @@ starlette==1.8.0
 websockets==17.2
 pywebpush==2.5.0
 py-vapid==1.9.4
-anthropic==0.121.0
+anthropic==1.17.0
 httpx==0.28.1
 dnspython==2.9.0
 requests==2.34.2
